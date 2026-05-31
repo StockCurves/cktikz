@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.2]
+
+### Changed
+
+- Text in canvas now unselectable
+
+### Fixed
+
+- Power source polarity reversed when exporting TikZ from Circuitikz Designer (Issue [#77](https://github.com/Circuit2TikZ/CircuiTikZ-Designer/issues/77))
+- Sometimes selecting components deletes them (Issue [#83](https://github.com/Circuit2TikZ/CircuiTikZ-Designer/issues/83))
+- Text placeholder sometimes crashing SVG export
+- Text placeholder state not saved to json
+
 ## [0.8.1]
 
 ### Fixed
