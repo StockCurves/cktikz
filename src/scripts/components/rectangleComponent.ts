@@ -507,7 +507,7 @@ export class RectangleComponent extends ShapeComponent {
 				textElement.remove()
 			}
 
-			if (!this.textAreaProperty.value) {
+			if (!this.textAreaProperty.value && !this.textAreaPlaceHolder.value) {
 				copiedSVG.removeElement(copiedSVG.find(".textSVG")[0])
 			}
 			this.textSVG.removeClass("textSVG")
