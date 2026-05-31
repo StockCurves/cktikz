@@ -267,6 +267,11 @@ export class RectangleComponent extends ShapeComponent {
 		data.type = RectangleComponent.jsonID
 		data.size = this.size.simplifyForJson()
 
+		if (!this.textAreaProperty.value && this.textAreaPlaceHolder.value) {
+			// save placeholder text state even if the text area is empty
+			data.text = { text: "", showPlaceholderText: true }
+		}
+
 		if (this.textAreaProperty.value) {
 			let textData: Text = {
 				text: undefined,
