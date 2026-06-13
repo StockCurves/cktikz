@@ -47,12 +47,12 @@
 	</head>
 
 	<body class="d-flex flex-column w-100 h-100">
-		<header class="navbar navbar-expand-md bg-body-secondary py-1">
+		<header class="navbar navbar-expand-md py-2 px-3 border-bottom shadow-sm brand-header" style="background-color: var(--bg-panel); border-color: var(--border-color) !important;">
 			<nav class="container-xxl flex-wrap flex-lg-nowrap">
-				<a class="navbar-brand unselectable" href=".">
-					<img src="../icons/favicon.svg" style="width: 1.5em; height: 1.5em" class="d-inline-block" />
-					<span class="">CircuiTi<i>k</i>Z Designer</span>
-					<span class="badge text-bg-secondary version unselectable d-none d-lg-inline"> v0.0.0 </span>
+				<a class="navbar-brand unselectable d-flex align-items-center gap-2" href=".">
+					<img src="../icons/favicon.svg" style="width: 1.8em; height: 1.8em" class="d-inline-block" />
+					<span class="fw-bold" style="font-family: var(--font-sans); letter-spacing: -0.5px; color: var(--text-main);">CircuiTi<i>k</i>Z Designer</span>
+					<span class="badge bg-secondary-subtle text-secondary version unselectable d-none d-lg-inline fs-7"> v0.0.0 </span>
 				</a>
 				<div class="d-flex gap-2 align-items-center ms-md-auto">
 					<a
@@ -64,7 +64,8 @@
 						data-bs-toggle-second="tooltip"
 						data-bs-trigger="hover"
 						data-bs-placement="bottom"
-						data-bs-title="Help menu">
+						data-bs-title="Help menu"
+						style="font-size: 24px !important;">
 						help
 					</a>
 					<div class="vr me-2 d-block d-md-none"></div>
@@ -92,111 +93,77 @@
 							data-bs-target="#ctNavbar"></button>
 					</div>
 					<div class="offcanvas-body">
-						<ul class="navbar-nav gap-2">
-							<li class="nav-item py-2 py-md-1 col-12 col-md-auto">
-								<div class="vr d-none d-md-flex h-100 mx-md-2"></div>
-								<hr class="d-md-none my-2" />
-							</li>
+						<ul class="navbar-nav gap-2 align-items-center">
 							<li class="nav-item col-12 col-md-auto">
 								<button
 									type="button"
-									class="dropdown-item"
-									id="loadButton"
-									data-bs-toggle="tooltip"
-									data-bs-placement="bottom"
-									data-bs-title="Load a circuit (part) from a JSON file (Ctrl/⌘ + O)">
-									<span class="material-symbols-outlined toolbarButton">file_open</span>
-									<span class="d-md-none fs-4"> Load </span>
-								</button>
-							</li>
-							<li class="nav-item col-12 col-md-auto">
-								<button
-									type="button"
-									class="dropdown-item"
-									id="saveButton"
-									data-bs-toggle="tooltip"
-									data-bs-placement="bottom"
-									data-bs-title="Save the circuit in a JSON file (Ctrl/⌘ + S)">
-									<span class="material-symbols-outlined toolbarButton">save</span>
-									<span class="d-md-none fs-4"> Save </span>
-								</button>
-							</li>
-							<li class="nav-item py-2 py-md-1 col-12 col-md-auto">
-								<div class="vr d-none d-md-flex h-100 mx-md-2"></div>
-								<hr class="d-md-none my-2" />
-							</li>
-							<li class="nav-item col-12 col-md-auto">
-								<button
-									type="button"
-									class="dropdown-item"
+									class="btn btn-outline"
 									id="exportCircuiTikZButton"
 									data-bs-toggle="tooltip"
 									data-bs-placement="bottom"
-									data-bs-title="Export the circuit as CircuiTikZ code (Ctrl/⌘ + E)">
-									<span class="material-symbols-outlined toolbarButton">code</span>
-									<span class="d-md-none fs-4">
-										<div>Export CircuiTi<i>k</i>Z code</div>
-									</span>
+									data-bs-title="Toggle TikZ Editor (Ctrl+B)">
+									<span class="material-symbols-outlined d-flex align-items-center" style="font-size: 20px;">code</span>
 								</button>
 							</li>
 							<li class="nav-item col-12 col-md-auto">
 								<button
 									type="button"
-									class="dropdown-item"
+									class="btn btn-outline"
 									id="exportSVGButton"
 									data-bs-toggle="tooltip"
 									data-bs-placement="bottom"
 									data-bs-title="Export the circuit as SVG code (Ctrl/⌘ + Shift + E)">
-									<span class="material-symbols-outlined toolbarButton">image</span>
-									<span class="d-md-none fs-4"> Export SVG code </span>
+									<span class="material-symbols-outlined d-flex align-items-center" style="font-size: 20px;">image</span>
 								</button>
 							</li>
 							<li class="nav-item py-2 py-md-1 col-12 col-md-auto">
-								<div class="vr d-none d-md-flex h-100 mx-md-2"></div>
+								<div class="vr d-none d-md-flex h-100 mx-md-2" style="min-height: 24px;"></div>
 								<hr class="d-md-none my-2" />
 							</li>
 							<li class="nav-item col-12 col-md-auto align-self-md-center">
-								<div class="form-check form-switch d-flex ps-0 m-0 fs-3 gap-2">
+								<div class="form-check form-switch d-flex ps-0 m-0 fs-5 gap-2 align-items-center">
 									<label
-										class="form-check-label material-symbols-outlined toolbarButton"
+										class="form-check-label material-symbols-outlined"
 										for="darkModeSwitch"
-										id="darkModeLabel">
+										id="darkModeLabel"
+										style="font-size: 22px;">
 										dark_mode
 									</label>
 									<input
-										class="form-check-input m-0 align-self-center"
+										class="form-check-input m-0 align-self-center custom-theme-switch"
 										type="checkbox"
 										id="darkModeSwitch"
 										checked />
-									<label class="d-md-none fs-4" for="darkModeSwitch">Toggle dark mode</label>
 								</div>
 							</li>
 							<li class="nav-item py-2 py-md-1 col-12 col-md-auto">
-								<div class="vr d-none d-md-flex h-100 mx-md-2"></div>
+								<div class="vr d-none d-md-flex h-100 mx-md-2" style="min-height: 24px;"></div>
 								<hr class="d-md-none my-2" />
 							</li>
 							<li class="nav-item col-12 col-md-auto">
 								<button
 									type="button"
-									class="dropdown-item"
+									class="btn btn-outline"
 									data-bs-toggle="modal"
-									data-bs-target="#tabManagementModal">
-									<span class="toolbarButton material-symbols-outlined">tab_group</span>
-									<span class="d-md-none fs-4"> Tab management </span>
+									data-bs-target="#tabManagementModal"
+									data-bs-toggle-second="tooltip"
+									data-bs-title="Tab management">
+									<span class="material-symbols-outlined d-flex align-items-center" style="font-size: 20px;">tab_group</span>
 								</button>
 							</li>
 							<li class="nav-item py-2 py-md-1 col-12 col-md-auto">
-								<div class="vr d-none d-md-flex h-100 mx-md-2"></div>
+								<div class="vr d-none d-md-flex h-100 mx-md-2" style="min-height: 24px;"></div>
 								<hr class="d-md-none my-2" />
 							</li>
 							<li class="nav-item col-12 col-md-auto">
 								<button
 									type="button"
-									class="dropdown-item"
+									class="btn btn-outline"
 									data-bs-toggle="modal"
-									data-bs-target="#aboutModal">
-									<span class="toolbarButton material-symbols-outlined">info</span>
-									<span class="d-md-none fs-4"> About </span>
+									data-bs-target="#aboutModal"
+									data-bs-toggle-second="tooltip"
+									data-bs-title="About CircuiTikZ Designer">
+									<span class="material-symbols-outlined d-flex align-items-center" style="font-size: 20px;">info</span>
 								</button>
 							</li>
 						</ul>
@@ -207,67 +174,95 @@
 		<!-- Site content -->
 		<div class="container-fluid flex-grow-1 w-100 position-relative overflow-hidden p-2">
 			<div class="row w-100 h-100 p-0 m-0" id="siteContent">
+				<div class="d-none m-0 p-0 bg-body-tertiary border border-secondary rounded d-flex flex-column" id="tikzEditorContainer" style="width: 300px; min-width: 200px; max-width: 600px; height: 100%;">
+					<div class="d-flex flex-column h-100 p-2">
+						<div class="d-flex justify-content-between align-items-center mb-2">
+							<h5 class="m-0 unselectable">TikZ Editor</h5>
+							<div class="d-flex gap-1">
+								<button type="button" class="btn btn-secondary btn-sm icon-button" id="copyTikzCodeButton" data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-title="Copy TikZ code">
+									<span class="material-symbols-outlined" style="font-size: 18px; width: 18px; height: 18px;">content_copy</span>
+								</button>
+								<button type="button" class="btn btn-secondary btn-sm icon-button" id="saveTikzCodeButton" data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-title="Save TikZ code (.tikz)">
+									<span class="material-symbols-outlined" style="font-size: 18px; width: 18px; height: 18px;">download</span>
+								</button>
+								<button type="button" class="btn btn-primary btn-sm icon-button" id="applyTikzButton">
+									<span class="material-symbols-outlined" style="font-size: 18px; width: 18px; height: 18px;">done</span>Apply
+								</button>
+							</div>
+						</div>
+						<textarea id="tikzEditorTextArea" class="flex-grow-1 form-control font-monospace" style="font-family: monospace; font-size: 14px; resize: none;" spellcheck="false" placeholder="% Edit TikZ code here..."></textarea>
+						<div id="tikzEditorError" class="text-danger mt-1 small" style="white-space: pre-wrap; display: none;"></div>
+					</div>
+				</div>
+				<!-- Resizer handler -->
+				<div id="tikzEditorResizer" class="d-none" style="width: 6px; cursor: col-resize; background-color: var(--bs-border-color); user-select: none; align-self: stretch; z-index: 10;"></div>
 				<div class="col-12 col-md position-relative" id="canvasContainer">
 					<div
-						class="z-1 position-absolute border rounded bg-body d-flex flex-row justify-content-center gap-3 align-items-center p-2"
-						id="controlsContainer">
-						<a
-							id="addComponentButton"
-							class="toolbarButton material-symbols-outlined"
-							role="button"
-							data-bs-toggle="tooltip"
-							data-bs-placement="bottom"
-							data-bs-title="Open component drawer (Q)"
-							aria-controls="leftOffcanvas"
-							>add</a
-						>
-						<div class="vr"></div>
-						<a
-							id="modeDragPan"
-							class="toolbarButton material-symbols-outlined selected"
-							role="button"
-							data-bs-toggle="tooltip"
-							data-bs-placement="bottom"
-							data-bs-title="Pan or zoom the canvas (Esc)"
-							>drag_pan</a
-						>
-						<a
-							id="modeDrawLine"
-							class="toolbarButton material-symbols-outlined"
-							role="button"
-							data-bs-toggle="tooltip"
-							data-bs-placement="bottom"
-							data-bs-title="Draw wires (W)"
-							>draw</a
-						>
-						<a
-							id="modeEraser"
-							class="toolbarButton material-symbols-outlined"
-							role="button"
-							data-bs-toggle="tooltip"
-							data-bs-placement="bottom"
-							data-bs-title="Erase components and wires (Del, Backspace)"
-							>ink_eraser</a
-						>
-						<div class="vr"></div>
-						<a
-							role="button"
-							class="toolbarButton material-symbols-outlined"
-							id="undoButton"
-							data-bs-toggle="tooltip"
-							data-bs-placement="bottom"
-							data-bs-title="Undo (Ctrl/⌘+Z)"
-							>undo</a
-						>
-						<a
-							role="button"
-							class="toolbarButton material-symbols-outlined"
-							id="redoButton"
-							data-bs-toggle="tooltip"
-							data-bs-placement="bottom"
-							data-bs-title="Redo (Ctrl/⌘+Y)"
-							>redo</a
-						>
+						class="z-1 position-absolute border rounded bg-body d-flex flex-row justify-content-center gap-3 align-items-center p-2 shadow-sm"
+						id="controlsContainer" style="top: 15px; left: 15px; border-radius: 12px !important; border: 1px solid var(--border-color) !important; background-color: rgba(255, 255, 255, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);">
+						<div class="d-flex gap-1 align-items-center">
+							<a
+								id="addComponentButton"
+								class="toolbarButton material-symbols-outlined"
+								role="button"
+								data-bs-toggle="tooltip"
+								data-bs-placement="bottom"
+								data-bs-title="Open component drawer (Q)"
+								aria-controls="leftOffcanvas"
+								>add</a
+							>
+						</div>
+						<div class="vr" style="height: 20px;"></div>
+						<div class="d-flex gap-1 align-items-center">
+							<a
+								id="modeDragPan"
+								class="toolbarButton material-symbols-outlined selected"
+								role="button"
+								data-bs-toggle="tooltip"
+								data-bs-placement="bottom"
+								data-bs-title="Pan or zoom the canvas (Esc)"
+								>drag_pan</a
+							>
+							<a
+								id="modeDrawLine"
+								class="toolbarButton material-symbols-outlined"
+								role="button"
+								data-bs-toggle="tooltip"
+								data-bs-placement="bottom"
+								data-bs-title="Draw wires (W)"
+								>draw</a
+							>
+							<a
+								id="modeEraser"
+								class="toolbarButton material-symbols-outlined"
+								role="button"
+								data-bs-toggle="tooltip"
+								data-bs-placement="bottom"
+								data-bs-title="Erase components and wires (Del, Backspace)"
+								>ink_eraser</a
+							>
+						</div>
+						<div class="vr" style="height: 20px;"></div>
+						<div class="d-flex gap-1 align-items-center">
+							<a
+								role="button"
+								class="toolbarButton material-symbols-outlined"
+								id="undoButton"
+								data-bs-toggle="tooltip"
+								data-bs-placement="bottom"
+								data-bs-title="Undo (Ctrl/⌘+Z)"
+								>undo</a
+							>
+							<a
+								role="button"
+								class="toolbarButton material-symbols-outlined"
+								id="redoButton"
+								data-bs-toggle="tooltip"
+								data-bs-placement="bottom"
+								data-bs-title="Redo (Ctrl/⌘+Y)"
+								>redo</a
+							>
+						</div>
 					</div>
 					<!-- The actual canvas -->
 					<include src="pages/canvas.svg"></include>
@@ -277,7 +272,7 @@
 						</div>
 					</div>
 				</div>
-				<div class="col-12 col-md-5 col-lg-4 col-xxl-3 m-0 p-0 overflow-y-auto" id="propertiesContainer">
+				<div class="col-12 col-md-4 col-lg-3 col-xxl-2 m-0 p-0 overflow-y-auto" id="propertiesContainer">
 					<div
 						class="w-100 h-100 bg-body-tertiary border border-secondary rounded d-flex flex-column"
 						id="properties">
@@ -361,7 +356,13 @@
 			<div class="offcanvas-header flex-column gap-3">
 				<div class="d-flex justify-content-between align-items-center w-100">
 					<h5 class="offcanvas-title" id="offcanvasLabel">Symbols</h5>
-					<button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+					<div class="d-flex gap-2 align-items-center">
+						<button type="button" class="btn btn-sm btn-outline-primary d-flex align-items-center gap-1" id="addCategoryButton" title="新增分類" style="padding: 2px 8px;">
+							<span class="material-symbols-outlined" style="font-size: 16px; line-height: 1;">create_new_folder</span>
+							<span style="font-size: 12px; line-height: 1;">新增分類</span>
+						</button>
+						<button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+					</div>
 				</div>
 				<div class="d-flex offcanvas-search align-items-center w-100">
 					<span class="material-symbols-outlined">search</span>
@@ -905,6 +906,196 @@
 				</div>
 			</div>
 		</div>
+		<!-- Modal (rename dialog) -->
+		<div class="modal fade" id="renameModal" tabindex="-1"
+		     aria-labelledby="renameModalLabel" aria-hidden="true" role="dialog">
+			<div class="modal-dialog">
+				<div class="modal-content">
+					<div class="modal-header">
+						<h1 class="modal-title fs-5" id="renameModalLabel">更名</h1>
+						<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+					</div>
+					<div class="modal-body">
+						<input type="text" class="form-control" id="renameModalInput" placeholder="請輸入新名稱" />
+					</div>
+					<div class="modal-footer">
+						<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+						<button type="button" class="btn btn-primary" id="renameModalConfirm">確認</button>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- Modal (save selection as symbol dialog) -->
+		<div class="modal fade" id="saveSymbolModal" tabindex="-1"
+		     aria-labelledby="saveSymbolModalLabel" aria-hidden="true" role="dialog">
+			<div class="modal-dialog">
+				<div class="modal-content">
+					<div class="modal-header">
+						<h1 class="modal-title fs-5" id="saveSymbolModalLabel">儲存為自訂元件 (Save Selection as Symbol)</h1>
+						<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+					</div>
+					<div class="modal-body d-flex flex-column gap-3">
+						<div>
+							<label for="saveSymbolNameInput" class="form-label">元件名稱 (Symbol Name)</label>
+							<input type="text" class="form-control" id="saveSymbolNameInput" placeholder="請輸入名稱" />
+						</div>
+						<div>
+							<label for="saveSymbolCategorySelect" class="form-label">選擇分類 (Category)</label>
+							<select class="form-select" id="saveSymbolCategorySelect">
+								<!-- categories dynamically loaded -->
+							</select>
+						</div>
+						<div class="d-none" id="saveSymbolNewCategoryContainer">
+							<label for="saveSymbolNewCategoryInput" class="form-label">新分類名稱 (New Category Name)</label>
+							<input type="text" class="form-control" id="saveSymbolNewCategoryInput" placeholder="請輸入新分類名稱" />
+						</div>
+					</div>
+					<div class="modal-footer">
+						<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+						<button type="button" class="btn btn-primary" id="saveSymbolModalConfirm">儲存</button>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- Modal (Symbol Editor) -->
+		<div class="modal fade" id="symbolEditorModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false"
+		     aria-labelledby="symbolEditorModalLabel" aria-hidden="true" role="dialog">
+			<div class="modal-dialog modal-fullscreen">
+				<div class="modal-content">
+					<div class="modal-header py-2">
+						<h1 class="modal-title fs-5" id="symbolEditorModalLabel">Symbol Editor</h1>
+						<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" id="symbolEditorCloseBtn"></button>
+					</div>
+					<div class="modal-body p-0 d-flex flex-row overflow-hidden" style="height: calc(100vh - 56px);">
+						<!-- Editor canvas area -->
+						<div class="flex-grow-1 position-relative bg-dark-subtle d-flex align-items-center justify-content-center overflow-hidden" id="symbolEditorCanvasContainer" style="height: 100%;">
+							<svg id="symbolEditorSVG" width="100%" height="100%" style="cursor: default; background: var(--bs-body-bg);">
+								<defs>
+									<!-- Grid Pattern -->
+									<pattern id="editorGridPattern" width="20" height="20" patternUnits="userSpaceOnUse">
+										<path d="M 20 0 L 0 0 0 20" fill="none" stroke="var(--bs-border-color)" stroke-width="0.5"/>
+									</pattern>
+								</defs>
+								<!-- Grid Background -->
+								<rect width="100%" height="100%" fill="url(#editorGridPattern)" />
+								<!-- Viewport group for scaling and translation -->
+								<g id="symbolEditorViewport">
+									<!-- Dynamic symbol elements and connectors are rendered here -->
+									<g id="symbolEditorElementsGroup"></g>
+									<g id="symbolEditorPinsGroup"></g>
+									<g id="symbolEditorOverlayGroup"></g>
+								</g>
+							</svg>
+							<!-- Left toolbar inside editor canvas -->
+							<div class="position-absolute top-0 start-0 m-3 d-flex flex-column gap-2 p-2 bg-body-secondary border rounded shadow" style="z-index: 10;">
+								<button type="button" class="btn btn-outline-primary btn-sm p-2 d-flex align-items-center justify-content-center active" id="editorToolSelect" title="選取與拖拉元件">
+									<span class="material-symbols-outlined">near_me</span>
+								</button>
+								<button type="button" class="btn btn-outline-secondary btn-sm p-2 d-flex align-items-center justify-content-center" id="editorToolLine" title="新增直線">
+									<span class="material-symbols-outlined">edit</span>
+								</button>
+								<button type="button" class="btn btn-outline-secondary btn-sm p-2 d-flex align-items-center justify-content-center" id="editorToolCircle" title="新增圓形">
+									<span class="material-symbols-outlined">circle</span>
+								</button>
+								<button type="button" class="btn btn-outline-secondary btn-sm p-2 d-flex align-items-center justify-content-center" id="editorToolRect" title="新增矩形">
+									<span class="material-symbols-outlined">rectangle</span>
+								</button>
+								<button type="button" class="btn btn-outline-secondary btn-sm p-2 d-flex align-items-center justify-content-center" id="editorToolPin" title="新增連接點 (Pin)">
+									<span class="material-symbols-outlined">push_pin</span>
+								</button>
+								<hr class="my-1" />
+								<button type="button" class="btn btn-outline-danger btn-sm p-2 d-flex align-items-center justify-content-center" id="editorDeleteShape" title="刪除選取形狀" disabled>
+									<span class="material-symbols-outlined">delete</span>
+								</button>
+							</div>
+						</div>
+						<!-- Right properties side panel -->
+						<div class="bg-body-tertiary border-start d-flex flex-column shadow-sm" style="width: 320px; min-width: 320px; height: 100%;">
+							<div class="p-3 border-bottom bg-body-secondary">
+								<h5 class="mb-0">元件屬性與控制</h5>
+							</div>
+							<div class="p-3 flex-grow-1 overflow-y-auto d-flex flex-column gap-3" id="symbolEditorProperties">
+								<!-- Shape styles -->
+								<div id="shapeStyleSection" class="d-none">
+									<h6 class="border-bottom pb-1">形狀樣式</h6>
+									<div class="mb-3">
+										<label class="form-label small mb-1 fw-bold">線條寬度 (Stroke Width)</label>
+										<input type="range" class="form-range" min="0.1" max="5" step="0.1" id="editorStrokeWidth" />
+										<div class="d-flex justify-content-between small text-muted">
+											<span>0.1</span>
+											<span id="editorStrokeWidthVal" class="badge bg-secondary">1.0</span>
+											<span>5.0</span>
+										</div>
+									</div>
+									<div class="mb-3">
+										<label class="form-label small mb-1 fw-bold">線條顏色 (Stroke Color)</label>
+										<input type="color" class="form-control form-control-color w-100" id="editorStrokeColor" value="#000000" />
+									</div>
+									<div class="mb-3">
+										<label class="form-label small mb-1 fw-bold">填滿樣式 (Fill)</label>
+										<div class="d-flex gap-2 align-items-center mb-1">
+											<input type="color" class="form-control form-control-color" id="editorFillColor" value="#ffffff" disabled />
+											<div class="form-check">
+												<input class="form-check-input" type="checkbox" id="editorFillNone" checked />
+												<label class="form-check-label small" for="editorFillNone">無填滿 (None)</label>
+											</div>
+										</div>
+									</div>
+								</div>
+								
+								<!-- Pin properties -->
+								<div id="pinPropertySection" class="d-none">
+									<h6 class="border-bottom pb-1">連接點 (Pin) 屬性</h6>
+									<div class="mb-3">
+										<label for="editorPinName" class="form-label small mb-1 fw-bold">連接點名稱 (Pin Name)</label>
+										<input type="text" class="form-control form-control-sm" id="editorPinName" />
+									</div>
+									<div class="mb-3">
+										<label class="form-label small mb-1 fw-bold">連線座標 (Coordinates)</label>
+										<div class="row g-2">
+											<div class="col-6">
+												<div class="input-group input-group-sm">
+													<span class="input-group-text">X</span>
+													<input type="number" step="0.1" class="form-control" id="editorPinX" />
+												</div>
+											</div>
+											<div class="col-6">
+												<div class="input-group input-group-sm">
+													<span class="input-group-text">Y</span>
+													<input type="number" step="0.1" class="form-control" id="editorPinY" />
+												</div>
+											</div>
+										</div>
+									</div>
+									<div class="mb-3 form-check">
+										<input type="checkbox" class="form-check-input" id="editorPinIsDefault" />
+										<label class="form-check-label small" for="editorPinIsDefault">預設對齊點 (Default)</label>
+									</div>
+								</div>
+								
+								<!-- Selected Element Info -->
+								<div class="pt-2" id="elementInfoSection">
+									<h6 class="border-bottom pb-1">編輯狀態</h6>
+									<div id="elementInfoContent" class="small text-muted bg-dark-subtle p-2 rounded">
+										請在左側選取工具。
+										<br/>• 點擊形狀/連接點進行修改。
+										<br/>• 拖拉可以搬移位置。
+										<br/>• 鍵盤 Delete 可刪除所選。
+									</div>
+								</div>
+							</div>
+							<div class="p-3 border-top bg-body-secondary d-flex gap-2 justify-content-end">
+								<button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="symbolEditorCancelBtn">取消</button>
+								<button type="button" class="btn btn-primary" id="symbolEditorSaveBtn">儲存符號</button>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+
 		<script type="module" src="../scripts/index.ts"></script>
 	</body>
 </html>

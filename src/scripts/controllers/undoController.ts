@@ -7,6 +7,7 @@ import {
 	currentSaveVersion,
 	GlobalTikzSettings,
 	EnvironmentVariableController,
+	TikzEditorController,
 } from "../internal"
 
 /**
@@ -50,6 +51,7 @@ export class Undo {
 			Undo.states.push(currentState)
 			Undo.currentIndex = Undo.states.length - 1
 		}
+		TikzEditorController.instance.updateEditorText()
 	}
 
 	public static getCurrentState() {
@@ -96,5 +98,6 @@ export class Undo {
 		if (components.length > 0) {
 			SelectionController.instance.selectComponents(components, SelectionMode.RESET)
 		}
+		TikzEditorController.instance.updateEditorText()
 	}
 }

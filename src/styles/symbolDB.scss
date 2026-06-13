@@ -4,6 +4,16 @@
 	max-width: 400px;
 	min-width: min(100vw, 300px);
 	width: 33.3vw;
+	background-color: rgba(var(--bs-body-bg-rgb), 0.9);
+	backdrop-filter: blur(16px);
+	-webkit-backdrop-filter: blur(16px);
+	border-right: 1px solid var(--border-color);
+	box-shadow: var(--shadow-lg);
+}
+
+.offcanvas-header {
+	border-bottom: 1px solid var(--border-color);
+	padding: 16px 24px;
 }
 
 .offcanvas-search {
@@ -13,52 +23,90 @@
 		position: absolute;
 		top: calc(50% - 12px);
 		left: 13px;
+		color: var(--text-muted);
 	}
 
 	input {
 		display: block;
 		width: 100%;
-		padding-left: 50px;
+		padding-left: 42px;
+		border-radius: 8px;
+		border: 1px solid var(--border-color);
+		background-color: var(--bg-app);
+		color: var(--text-main);
+		font-family: var(--font-sans);
+		font-size: 14px;
+		height: 40px;
+		outline: none;
+		transition: all 0.2s ease;
+
+		&:focus {
+			border-color: var(--border-focus);
+			box-shadow: 0 0 0 3px var(--primary-light);
+			background-color: var(--bg-panel);
+		}
 	}
 }
 
-// fix style when searching for symbols of first shown group
-.accordion-item:nth-child(1 of :not(.d-none)) {
-	border-top-left-radius: var(--bs-accordion-border-radius);
-	border-top-right-radius: var(--bs-accordion-border-radius);
-	border: var(--bs-accordion-border-width) solid var(--bs-accordion-border-color);
-
-	// .accordion-header>button {
-	// 	background-color: transparent;
-	// }
+// Accordion items customized to brand-guidelines.md styling
+.accordion-item {
+	border: 1px solid var(--border-color) !important;
+	background-color: var(--bg-panel) !important;
+	border-radius: 8px !important;
+	margin-bottom: 8px;
+	overflow: hidden;
+	box-shadow: var(--shadow-sm);
 }
 
-// fix style when searching for symbols of last shown group
-.accordion-item:nth-last-child(1 of :not(.d-none)) {
-	border-bottom-left-radius: var(--bs-accordion-border-radius);
-	border-bottom-right-radius: var(--bs-accordion-border-radius);
+.accordion-button {
+	font-family: var(--font-sans) !important;
+	font-weight: 600 !important;
+	color: var(--text-main) !important;
+	background-color: var(--bg-panel) !important;
+	box-shadow: none !important;
+	padding: 14px 20px;
+	
+	&:not(.collapsed) {
+		background-color: var(--primary-light) !important;
+		color: var(--primary) !important;
+	}
 
-	// .accordion-header>button {
-	// 	background-color: transparent;
-	// }
+	&::after {
+		filter: brightness(0.5);
+	}
+}
+
+[data-bs-theme="dark"] .accordion-button::after {
+	filter: invert(1) brightness(0.85);
 }
 
 .iconLibAccordionBody {
 	display: flex;
 	flex-flow: row wrap;
-	justify-content: space-between;
+	justify-content: flex-start;
 	align-items: center;
-	gap: 10px;
+	gap: 12px;
+	padding: 16px 20px;
+	background-color: var(--bg-panel);
 }
 
 div.libComponent {
-	padding: 2px;
+	padding: 6px;
+	border-radius: 6px;
+	border: 1px solid transparent;
+	transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+	cursor: grab;
+
 	> svg {
-		min-width: 28px;
-		min-height: 28px;
+		min-width: 32px;
+		min-height: 32px;
 	}
 }
 
 div.libComponent:hover {
-	box-shadow: 3px 3px 7px 1px #cccc;
+	border-color: var(--border-color);
+	background-color: var(--bg-app);
+	transform: translateY(-1px);
+	box-shadow: var(--shadow-sm);
 }
+

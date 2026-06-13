@@ -47,9 +47,9 @@ export class GroupComponent extends CircuitComponent {
 
 		this.properties.add(PropertyCategories.ordering, new SectionHeaderProperty("Grouping"))
 		let grouping = new ButtonGridProperty(
-			1,
-			[["Ungroup", ""]],
-			[(ev) => this.ungroup()],
+			2,
+			[["Ungroup", ""], ["Save to Symbols", ""]],
+			[(ev) => this.ungroup(), (ev) => MainController.instance.createSubcircuitFromSelection()],
 			undefined,
 			undefined,
 			"ordering:ungroup"
@@ -83,6 +83,7 @@ export class GroupComponent extends CircuitComponent {
 	}
 
 	public isInsideSelectionRectangle(selectionRectangle: SVG.Box): boolean {
+		if (!this._bbox) return false
 		return rectRectIntersection(this._bbox, selectionRectangle)
 	}
 
@@ -133,13 +134,14 @@ export class GroupComponent extends CircuitComponent {
 				this._bbox = component.bbox
 			}
 		}
+		if (!this._bbox) return
 		this.position = new SVG.Point(this._bbox.cx, this._bbox.cy)
 
 		this.referencePosition = this.position.sub(new SVG.Point(this._bbox.x, this._bbox.y))
 		this.recalculateSelectionVisuals()
 	}
 	protected recalculateSelectionVisuals(): void {
-		if (this.selectionElement) {
+		if (this.selectionElement && this._bbox) {
 			let box = this.bbox
 
 			this.selectionElement.size(box.w, box.h)

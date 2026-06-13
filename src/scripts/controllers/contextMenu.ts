@@ -32,6 +32,7 @@ export class ContextMenu {
 		this.menuElement = document.createElement("ul")
 		this.menuElement.classList.add("dropdown-menu")
 		this.menuElement.style.position = "absolute"
+		this.menuElement.style.zIndex = "2000" // above Bootstrap offcanvas (1045)
 		document.body.appendChild(this.menuElement)
 
 		this.menuElement.append(

@@ -65,6 +65,7 @@ export class ComponentSymbol extends SVG.Symbol {
 	viewBox: SVG.Box | null
 	isNodeSymbol: boolean
 	symbolElement: SVG.Symbol
+	isCustomSymbol?: boolean
 
 	/**
 	 * which tikz options where used for this symbol

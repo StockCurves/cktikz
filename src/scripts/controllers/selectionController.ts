@@ -224,6 +224,7 @@ export class SelectionController {
 			component.viewSelected(false)
 			component.draggable(false)
 		}
+		this.currentlySelectedComponents.splice(0)
 	}
 
 	public viewSelection(show = true) {

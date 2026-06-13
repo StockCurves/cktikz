@@ -1,9 +1,86 @@
-// #properties{
-// 	max-width: 400px;
-// 	width: 30%;
-// 	min-width: 200px;
-// }
-
 #properties-content {
 	overflow-y: auto;
 }
+
+#propertiesContainer {
+	background-color: var(--bg-panel);
+	border-left: 1px solid var(--border-color) !important;
+	box-shadow: var(--shadow-sm);
+}
+
+#properties {
+	background-color: var(--bg-panel) !important;
+	border: none !important;
+}
+
+#propertiesTitle {
+	font-family: var(--font-sans);
+	font-size: 16px;
+	font-weight: 700;
+	color: var(--text-main);
+	letter-spacing: -0.2px;
+	padding: 16px !important;
+	border-bottom: 1px solid var(--border-color);
+}
+
+#properties-content {
+	padding: 20px 16px !important;
+	
+	.form-label {
+		font-family: var(--font-sans);
+		font-size: 12px;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.5px;
+		color: var(--text-muted);
+		margin-bottom: 6px;
+	}
+
+	.form-control,
+	.form-select {
+		font-family: var(--font-sans);
+		font-size: 14px;
+		font-weight: 500;
+		border-radius: 8px;
+		border: 1px solid var(--border-color);
+		background-color: var(--bg-app);
+		color: var(--text-main);
+		padding: 8px 12px;
+		outline: none;
+		transition: all 0.2s ease;
+
+		&:focus {
+			border-color: var(--border-focus);
+			box-shadow: 0 0 0 3px var(--primary-light);
+			background-color: var(--bg-panel);
+		}
+	}
+
+	// Sliders styling
+	.form-range {
+		&::-webkit-slider-runnable-track {
+			background-color: var(--border-color);
+			height: 6px;
+			border-radius: 3px;
+		}
+
+		&::-webkit-slider-thumb {
+			background-color: var(--primary);
+			border: 2px solid var(--bg-panel);
+			box-shadow: var(--shadow-sm);
+			transition: transform 0.1s ease;
+			
+			&:hover {
+				transform: scale(1.2);
+			}
+		}
+	}
+
+	// View controls card spacing
+	#view-properties {
+		.d-flex.flex-column {
+			gap: 16px !important;
+		}
+	}
+}
+

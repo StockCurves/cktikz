@@ -26,6 +26,7 @@ import {
 	defaultStroke,
 	defaultFill,
 	PolygonComponent,
+	GroupComponent,
 	GroupSaveObject,
 	memorySizeOf,
 	SaveFileFormat,
@@ -35,6 +36,11 @@ import {
 	TextProperty,
 	ShortComponent,
 	OpenComponent,
+	TikzEditorController,
+	ContextMenu,
+	SubcircuitComponent,
+	SubcircuitSaveObject,
+	SymbolEditorController,
 } from "../internal"
 
 type TabState = {
@@ -136,6 +142,10 @@ export class MainController {
 		let mathJaxPromise = this.loadMathJax()
 		let canvasPromise = this.initCanvas()
 		let symbolsDBPromise = this.initSymbolDB()
+		let dbResolve: (db: IDBDatabase) => void
+		let dbPromise = new Promise<IDBDatabase>((resolve) => {
+			dbResolve = resolve
+		})
 		let fontPromise = Promise.all([document.fonts.load("1em Computer Modern Serif"), loadTextConverter()])
 
 		MainController.appVersion = version
@@ -172,7 +182,9 @@ export class MainController {
 		) as HTMLButtonElement
 		exportCircuiTikZButton.addEventListener(
 			"click",
-			ExportController.instance.exportCircuiTikZ.bind(ExportController.instance),
+			() => {
+				TikzEditorController.instance.toggleVisibility()
+			},
 			{
 				passive: true,
 			}
@@ -183,35 +195,51 @@ export class MainController {
 			passive: true,
 		})
 
-		// init save and load
-		SaveController.instance
-		const saveButton: HTMLButtonElement = document.getElementById("saveButton") as HTMLButtonElement
-		saveButton.addEventListener("click", SaveController.instance.save.bind(SaveController.instance), {
-			passive: true,
-		})
-
-		const loadButton: HTMLButtonElement = document.getElementById("loadButton") as HTMLButtonElement
-		loadButton.addEventListener("click", SaveController.instance.load.bind(SaveController.instance), {
-			passive: true,
-		})
-
 		canvasPromise.then(() => {
 			EraseController.instance
 			SelectionController.instance
 			PropertyController.instance
 			ComponentPlacer.instance
 		})
-		this.initPromise = Promise.all([canvasPromise, symbolsDBPromise, mathJaxPromise, fontPromise]).then(() => {
+		this.addSaveStateManagement(dbResolve)
+		this.initPromise = Promise.all([canvasPromise, symbolsDBPromise, mathJaxPromise, fontPromise, dbPromise]).then(async () => {
 			document.getElementById("loadingSpinner")?.classList.add("d-none")
+			await this.loadCustomSymbolsIntoSymbolDB()
 			this.initAddComponentOffcanvas()
 			this.initShortcuts()
+			TikzEditorController.instance.init()
 
 			// Prevent "normal" browser menu
 			document
 				.getElementById("canvas")
-				.addEventListener("contextmenu", (evt) => evt.preventDefault(), { passive: false })
-
-			this.addSaveStateManagement()
+				.addEventListener("contextmenu", (evt) => {
+					evt.preventDefault()
+					if (SelectionController.instance.currentlySelectedComponents.length > 0) {
+						const selected = SelectionController.instance.currentlySelectedComponents
+						const menuEntries = []
+						
+						if (selected.length > 1) {
+							menuEntries.push({ result: "group", text: "建立群組 (Group Selection)" })
+						}
+						
+						if (selected.length === 1 && (selected[0] instanceof GroupComponent || selected[0].constructor.name === "GroupComponent" || selected[0].constructor.name === "SubcircuitComponent")) {
+							menuEntries.push({ result: "ungroup", text: "取消群組 (Ungroup)" })
+						}
+						
+						menuEntries.push({ result: "subcircuit", text: "儲存為自訂元件 (Save Selection as Symbol)..." })
+						
+						const menu = new ContextMenu(menuEntries)
+						menu.openForResult(evt.clientX, evt.clientY).then((res) => {
+							if (res === "group") {
+								GroupComponent.group(selected)
+							} else if (res === "ungroup") {
+								(selected[0] as GroupComponent).ungroup()
+							} else if (res === "subcircuit") {
+								this.createSubcircuitFromSelection()
+							}
+						}).catch(() => {})
+					}
+				}, { passive: false })
 
 			// prepare symbolDB for colorTheme
 			for (const g of this.symbolsSVG.defs().node.querySelectorAll("symbol>g")) {
@@ -292,7 +320,7 @@ export class MainController {
 	/**
 	 * handle tabs and save state management
 	 */
-	private addSaveStateManagement() {
+	private addSaveStateManagement(dbResolve: (db: IDBDatabase) => void) {
 		// remove old localStorage data
 		localStorage.removeItem("currentProgress")
 		localStorage.removeItem("circuit2tikz-designer-grid")
@@ -302,10 +330,13 @@ export class MainController {
 
 		const defaultSettings: CanvasSettings = {}
 
-		const IDBrequest = indexedDB.open("circuitikz-designer-db", 1)
+		const IDBrequest = indexedDB.open("circuitikz-designer-db-v2", 1)
 		IDBrequest.onerror = function (event) {
 			console.error("IndexedDB error")
 			console.error(event)
+		}
+		IDBrequest.onblocked = function (event) {
+			console.warn("Database upgrade blocked. Closing database in other tabs might help.")
 		}
 		IDBrequest.onupgradeneeded = function (event) {
 			MainController.instance.db = (event.target as IDBOpenDBRequest).result
@@ -313,9 +344,20 @@ export class MainController {
 				const objectStore = MainController.instance.db.createObjectStore("tabs", { keyPath: "id" })
 				objectStore.createIndex("open", "open", { unique: false })
 			}
+			if (!MainController.instance.db.objectStoreNames.contains("customCategories")) {
+				MainController.instance.db.createObjectStore("customCategories", { keyPath: "name" })
+			}
+			if (!MainController.instance.db.objectStoreNames.contains("customSymbols")) {
+				MainController.instance.db.createObjectStore("customSymbols", { keyPath: "id" })
+			}
 		}
 		IDBrequest.onsuccess = function (event) {
 			MainController.instance.db = (event.target as IDBOpenDBRequest).result
+			MainController.instance.db.onversionchange = function () {
+				MainController.instance.db.close()
+				console.log("Database closed due to version change request.")
+			}
+			dbResolve(MainController.instance.db)
 
 			window.addEventListener("visibilitychange", (ev) => {
 				if (document.visibilityState == "hidden") {
@@ -762,18 +804,6 @@ export class MainController {
 		})
 
 		//save/load
-		hotkeys("ctrl+s,command+s", () => {
-			SaveController.instance.save()
-			return false
-		})
-		hotkeys("ctrl+o,command+o", () => {
-			SaveController.instance.load()
-			return false
-		})
-		hotkeys("ctrl+e,command+e", () => {
-			ExportController.instance.exportCircuiTikZ()
-			return false
-		})
 		hotkeys("ctrl+shift+e,command+shift+e", () => {
 			ExportController.instance.exportSVG()
 			return false
@@ -968,6 +998,7 @@ export class MainController {
 			addButton.title = "Open"
 
 			const listener = (ev: MouseEvent) => {
+				if (ev.button !== 0) return
 				ev.preventDefault()
 
 				this.switchMode(Modes.DRAG_PAN)
@@ -995,6 +1026,7 @@ export class MainController {
 			addButton.title = "Text"
 
 			const listener = (ev: MouseEvent) => {
+				if (ev.button !== 0) return
 				ev.preventDefault()
 
 				this.switchMode(Modes.DRAG_PAN)
@@ -1023,6 +1055,7 @@ export class MainController {
 			addButton.title = "Rectangle/Text"
 
 			const listener = (ev: MouseEvent) => {
+				if (ev.button !== 0) return
 				ev.preventDefault()
 
 				this.switchMode(Modes.DRAG_PAN)
@@ -1051,6 +1084,7 @@ export class MainController {
 			addButton.title = "Ellipse"
 
 			const listener = (ev: MouseEvent) => {
+				if (ev.button !== 0) return
 				ev.preventDefault()
 				this.switchMode(Modes.COMPONENT)
 
@@ -1084,6 +1118,7 @@ export class MainController {
 			addButton.title = "Polygon"
 
 			const listener = (ev: MouseEvent) => {
+				if (ev.button !== 0) return
 				ev.preventDefault()
 				this.switchMode(Modes.COMPONENT)
 
@@ -1126,6 +1161,7 @@ export class MainController {
 			addButton.title = "Straight line"
 
 			const listener = (ev: MouseEvent) => {
+				if (ev.button !== 0) return
 				ev.preventDefault()
 
 				this.switchMode(Modes.DRAG_PAN)
@@ -1152,6 +1188,7 @@ export class MainController {
 			addButton.title = "Straight arrow"
 
 			const listener = (ev: MouseEvent) => {
+				if (ev.button !== 0) return
 				ev.preventDefault()
 
 				this.switchMode(Modes.DRAG_PAN)
@@ -1189,6 +1226,7 @@ export class MainController {
 			addButton.title = "Arrow"
 
 			const listener = (ev: MouseEvent) => {
+				if (ev.button !== 0) return
 				ev.preventDefault()
 
 				this.switchMode(Modes.DRAG_PAN)
@@ -1230,6 +1268,12 @@ export class MainController {
 		const leftOffcanvasOC = new Offcanvas(leftOffcanvas)
 		document.getElementById("componentFilterInput").addEventListener("input", this.filterComponents)
 		document.getElementById("filterRegexButton").addEventListener("click", this.filterComponents)
+		document.getElementById("addCategoryButton").addEventListener("click", () => {
+			const name = prompt("請輸入自訂分類名稱：")
+			if (name) {
+				this.addCustomCategory(name)
+			}
+		})
 
 		const addComponentButton: HTMLAnchorElement = document.getElementById("addComponentButton") as HTMLAnchorElement
 		addComponentButton.addEventListener(
@@ -1268,6 +1312,7 @@ export class MainController {
 		)
 
 		this.addShapeComponentsToOffcanvas(leftOffcanvasAccordion, leftOffcanvasOC)
+		await this.loadAndRenderCustomCategories()
 
 		for (const [groupName, symbols] of groupedSymbols.entries()) {
 			const collapseGroupID = "collapseGroup-" + groupName.replace(/[^\d\w\-\_]+/gi, "-")
@@ -1316,6 +1361,7 @@ export class MainController {
 				addButton.title = symbol.displayName || symbol.tikzName
 
 				const listener = (ev: MouseEvent) => {
+					if (ev.button !== 0) return
 					ev.preventDefault()
 					this.switchMode(Modes.COMPONENT)
 
@@ -1336,6 +1382,67 @@ export class MainController {
 
 				addButton.addEventListener("mouseup", listener)
 				addButton.addEventListener("touchstart", listener, { passive: false })
+
+				addButton.addEventListener("contextmenu", (ev) => {
+					ev.preventDefault()
+					ev.stopPropagation()
+					if (this.customCategories.length === 0) {
+						const name = prompt("您目前沒有自訂分類，請先輸入新分類名稱來建立它：")
+						if (name) {
+							this.addCustomCategory(name).then(() => {
+								setTimeout(() => {
+									this.addSymbolToCategory(name, symbol.tikzName)
+								}, 100)
+							})
+						}
+						return
+					}
+					const menuEntries = this.customCategories.map(c => ({
+						result: "add:" + c.name,
+						text: `加到 "${c.name}"`
+					})).concat([
+						{ result: "new", text: "加到新分類..." },
+						{ result: "duplicate", text: "複製此符號並自訂..." }
+					])
+
+					const menu = new ContextMenu(menuEntries)
+					menu.openForResult(ev.clientX, ev.clientY).then(async (res) => {
+						if (res === "new") {
+							const name = prompt("請輸入自訂分類名稱：")
+							if (name) {
+								this.addCustomCategory(name).then(() => {
+									setTimeout(() => {
+										this.addSymbolToCategory(name, symbol.tikzName)
+									}, 100)
+								})
+							}
+						} else if (res.startsWith("add:")) {
+							const catName = res.substring(4)
+							this.addSymbolToCategory(catName, symbol.tikzName)
+						} else if (res === "duplicate") {
+							const newName = prompt("請輸入新自訂符號的名稱（e.g. hvnmos）：")
+							if (!newName) return
+							const cleanName = newName.trim()
+							if (!cleanName) return
+
+							// 選擇分類
+							let catName = ""
+							const catOptions = this.customCategories.map((c, i) => `${i + 1}. ${c.name}`).join("\n")
+							const catIndexStr = prompt(`請輸入數字選擇分類：\n${catOptions}\n\n或直接輸入新分類名稱：`)
+							if (!catIndexStr) return
+							const inputVal = catIndexStr.trim()
+							const index = parseInt(inputVal)
+							if (!isNaN(index) && index >= 1 && index <= this.customCategories.length) {
+								catName = this.customCategories[index - 1].name
+							} else {
+								catName = inputVal
+								await this.addCustomCategory(catName)
+							}
+
+							this.duplicateSymbol(symbol, cleanName, catName)
+						}
+					}).catch(() => {})
+				})
 
 				let svgIcon = SVG.SVG().addTo(addButton)
 
@@ -1558,5 +1665,1029 @@ export class MainController {
 			this.circuitComponents.splice(idx, 1)
 			circuitComponent.remove()
 		}
+	}
+
+	public async loadCustomSymbolsIntoSymbolDB() {
+		const transaction = this.db.transaction("customSymbols", "readonly")
+		const store = transaction.objectStore("customSymbols")
+		const syms = await new Promise<any[]>((resolve) => {
+			store.getAll().onsuccess = (ev) => resolve((ev.target as IDBRequest).result || [])
+		})
+
+		const symbolsSVGElement = document.getElementById("symbolDB")
+		if (!symbolsSVGElement) return
+
+		for (const sym of syms) {
+			if (sym.isCustomSymbol) {
+				// 1. 將它的 symbols XML 插入到 DOM 中
+				for (const symId in sym.symbols) {
+					const symXml = sym.symbols[symId]
+					console.log(`[LoadCustom] Restoring symbol ID: ${symId}, XML length: ${symXml ? symXml.length : 0}`);
+					if (!document.getElementById(symId)) {
+						const wrapper = `<svg xmlns="http://www.w3.org/2000/svg">${symXml}</svg>`
+						const parsed = new DOMParser().parseFromString(wrapper, "image/svg+xml")
+						const symbolNode = parsed.querySelector("symbol")
+						if (symbolNode) {
+							const node = document.adoptNode(symbolNode)
+							symbolsSVGElement.appendChild(node)
+							console.log(`[LoadCustom] Appended symbol ${symId} to DOM. Exists?`, !!document.getElementById(symId));
+						}
+					}
+				}
+				// 2. 將 componentXml 解析並建立 ComponentSymbol
+				const compWrapper = `<svg xmlns="http://www.w3.org/2000/svg">${sym.componentXml}</svg>`
+				const parsedComp = new DOMParser().parseFromString(compWrapper, "image/svg+xml")
+				const compElement = parsedComp.querySelector("component")
+				if (compElement) {
+					const compNode = document.adoptNode(compElement)
+					symbolsSVGElement.appendChild(compNode)
+					
+					if (!this.symbols.some(s => s.tikzName === sym.tikzName)) {
+						const compSymbol = new ComponentSymbol(compNode)
+						compSymbol.isCustomSymbol = true
+						this.symbols.push(compSymbol)
+					}
+				}
+			}
+		}
+	}
+
+	public async duplicateSymbol(originalSymbol: ComponentSymbol, newTikzName: string, categoryName: string) {
+		const symbolSVGElement = document.getElementById("symbolDB")
+		if (!symbolSVGElement) return
+
+		// 1. 取得原 component XML 節點
+		const originalComponentNode = Array.from(symbolSVGElement.getElementsByTagName("component"))
+			.find(c => c.getAttribute("tikz") === originalSymbol.tikzName)
+		if (!originalComponentNode) {
+			alert("找不到原符號的中繼資料！")
+			return
+		}
+
+		// 2. 複製節點並修改屬性
+		const newComponentNode = originalComponentNode.cloneNode(true) as Element
+		newComponentNode.setAttribute("tikz", newTikzName)
+		newComponentNode.setAttribute("display", newTikzName)
+
+		// 3. 處理 variants 及對應的 `<symbol>`
+		const variants = newComponentNode.getElementsByTagName("variant")
+		const symbolsMap: { [key: string]: string } = {}
+
+		for (let i = 0; i < variants.length; i++) {
+			const variant = variants[i]
+			const originalFor = variant.getAttribute("for")
+			if (originalFor) {
+				const originalSymbolNode = document.getElementById(originalFor)
+				if (originalSymbolNode) {
+					const newSymbolId = `node_custom_${newTikzName}_${i === 0 ? "default" : i}`
+					const newSymbolNode = originalSymbolNode.cloneNode(true) as Element
+					newSymbolNode.setAttribute("id", newSymbolId)
+					
+					// 插入到 DOM 中
+					symbolSVGElement.appendChild(newSymbolNode)
+					
+					// 更新 variant 指向
+					variant.setAttribute("for", newSymbolId)
+					
+					// 收集 XML
+					symbolsMap[newSymbolId] = newSymbolNode.outerHTML
+				}
+			}
+		}
+
+		// 4. 打包儲存至 IndexedDB
+		const customSymbolId = "custom-" + newTikzName
+		const customSymbolData = {
+			id: customSymbolId,
+			tikzName: newTikzName,
+			displayName: newTikzName,
+			isCustomSymbol: true,
+			isNodeSymbol: originalSymbol.isNodeSymbol,
+			baseSymbol: originalSymbol.tikzName,
+			componentXml: newComponentNode.outerHTML,
+			symbols: symbolsMap
+		}
+
+		// 5. 記憶體中實例化 ComponentSymbol 并推入 lists
+		symbolSVGElement.appendChild(newComponentNode)
+		console.log(`[Duplicate] Appended component node for ${newTikzName} to DOM. XML:`, newComponentNode.outerHTML)
+		const compSymbol = new ComponentSymbol(newComponentNode)
+		compSymbol.isCustomSymbol = true
+		this.symbols = this.symbols.filter(s => s.tikzName !== newTikzName)
+		this.symbols.push(compSymbol)
+
+		// 6. 保存至自訂類別
+		await this.addSymbolToCategory(categoryName, newTikzName, customSymbolData)
+	}
+
+	public async renameCustomGraphicsSymbol(oldTikzName: string, newTikzName: string) {
+		newTikzName = newTikzName.trim()
+		if (!newTikzName || newTikzName === oldTikzName) return
+
+		const oldId = "custom-" + oldTikzName
+		const newId = "custom-" + newTikzName
+
+		// 1. 更新 customSymbols 物件儲存區
+		const symTx = this.db.transaction("customSymbols", "readwrite")
+		const symStore = symTx.objectStore("customSymbols")
+		symStore.get(oldId).onsuccess = (ev) => {
+			const sym = (ev.target as IDBRequest).result
+			if (!sym) return
+
+			sym.id = newId
+			sym.tikzName = newTikzName
+			sym.displayName = newTikzName
+
+			// 更新 componentXml 的 tikz 與 display 屬性
+			const parser = new DOMParser()
+			const compDoc = parser.parseFromString(sym.componentXml, "image/svg+xml")
+			const compNode = compDoc.querySelector("component")!
+			compNode.setAttribute("tikz", newTikzName)
+			compNode.setAttribute("display", newTikzName)
+
+			// 更新 variants 的 for 屬性及 map 中的 symbol ids
+			const variants = compNode.getElementsByTagName("variant")
+			const newSymbolsMap: { [key: string]: string } = {}
+			for (let i = 0; i < variants.length; i++) {
+				const variant = variants[i]
+				const oldFor = variant.getAttribute("for")!
+				const newFor = oldFor.replace(oldTikzName, newTikzName)
+				variant.setAttribute("for", newFor)
+
+				if (sym.symbols[oldFor]) {
+					// 替換 symbol id 定義 XML
+					const symDoc = parser.parseFromString(sym.symbols[oldFor], "image/svg+xml")
+					symDoc.querySelector("symbol")!.setAttribute("id", newFor)
+					newSymbolsMap[newFor] = symDoc.querySelector("symbol")!.outerHTML
+				}
+			}
+
+			sym.componentXml = compNode.outerHTML
+			sym.symbols = newSymbolsMap
+
+			symStore.delete(oldId)
+			symStore.put(sym)
+
+			symTx.oncomplete = () => {
+				// 2. 更新 customCategories 中的 symbolIds
+				const catTx = this.db.transaction("customCategories", "readwrite")
+				const catStore = catTx.objectStore("customCategories")
+				catStore.getAll().onsuccess = (ev) => {
+					const cats = (ev.target as IDBRequest).result || []
+					for (const cat of cats) {
+						const idx = cat.symbolIds.indexOf(oldTikzName)
+						if (idx >= 0) {
+							cat.symbolIds[idx] = newTikzName
+							catStore.put(cat)
+						}
+					}
+					catTx.oncomplete = () => {
+						// 3. 更新 DOM 中的 `#symbolDB` 節點
+						const symbolDB = document.getElementById("symbolDB")
+						if (symbolDB) {
+							// 刪除舊的 symbols 節點，並加入新 id 節點
+							for (const oldFor in sym.symbols) {
+								const oldNode = document.getElementById(oldFor)
+								if (oldNode) oldNode.remove()
+							}
+							for (const newFor in newSymbolsMap) {
+								const parsedSym = parser.parseFromString(newSymbolsMap[newFor], "image/svg+xml")
+								const adopted = document.adoptNode(parsedSym.firstElementChild!)
+								symbolDB.appendChild(adopted)
+							}
+						}
+
+						// 4. 更新記憶體中 `this.symbols` 的 ComponentSymbol 實體
+						const oldCompSymbolIdx = this.symbols.findIndex(s => s.tikzName === oldTikzName)
+						if (oldCompSymbolIdx >= 0) {
+							this.symbols.splice(oldCompSymbolIdx, 1)
+						}
+						const newCompSymbol = new ComponentSymbol(compNode)
+						this.symbols.push(newCompSymbol)
+
+						// 5. 更新畫布上正在使用的元件的 referenceSymbol 與 tikzName 參照，並重新 update
+						for (const comp of this.circuitComponents) {
+							if (comp.referenceSymbol && comp.referenceSymbol.tikzName === oldTikzName) {
+								comp.referenceSymbol = newCompSymbol
+								if ((comp as any).displayName === oldTikzName) {
+									(comp as any).displayName = newTikzName
+								}
+								comp.update()
+							}
+						}
+
+						// 6. 重新載入與渲染左側 Offcanvas
+						this.loadAndRenderCustomCategories()
+					}
+				}
+			}
+		}
+	}
+
+	public async deleteCustomGraphicsSymbol(tikzName: string) {
+		const symbolId = "custom-" + tikzName
+
+		// 1. 從所有類別中移除該 symbol id
+		const catTx = this.db.transaction("customCategories", "readwrite")
+		const catStore = catTx.objectStore("customCategories")
+		catStore.getAll().onsuccess = (ev) => {
+			const cats = (ev.target as IDBRequest).result || []
+			for (const cat of cats) {
+				if (cat.symbolIds.includes(tikzName)) {
+					cat.symbolIds = cat.symbolIds.filter((id: string) => id !== tikzName)
+					catStore.put(cat)
+				}
+			}
+
+			catTx.oncomplete = () => {
+				// 2. 從 customSymbols 中刪除
+				const symTx = this.db.transaction("customSymbols", "readwrite")
+				symTx.objectStore("customSymbols").delete(symbolId).onsuccess = () => {
+					// 3. 從記憶體 `this.symbols` 移除
+					this.symbols = this.symbols.filter(s => s.tikzName !== tikzName)
+
+					// 4. 重新載入
+					this.loadAndRenderCustomCategories()
+				}
+			}
+		}
+	}
+
+	public customCategories: { name: string; symbolIds: string[] }[] = []
+	public customSymbols: any[] = []
+
+	public async loadAndRenderCustomCategories() {
+		const transaction = this.db.transaction(["customCategories", "customSymbols"], "readonly")
+		const catStore = transaction.objectStore("customCategories")
+		const symStore = transaction.objectStore("customSymbols")
+
+		const catsPromise = new Promise<{ name: string; symbolIds: string[] }[]>((resolve) => {
+			catStore.getAll().onsuccess = (ev) => resolve((ev.target as IDBRequest).result || [])
+		})
+		const symsPromise = new Promise<any[]>((resolve) => {
+			symStore.getAll().onsuccess = (ev) => resolve((ev.target as IDBRequest).result || [])
+		})
+
+		this.customCategories = await catsPromise
+		this.customSymbols = await symsPromise
+
+		const leftOffcanvasAccordion = document.getElementById("leftOffcanvasAccordion") as HTMLDivElement
+		const leftOffcanvas: HTMLDivElement = document.getElementById("leftOffcanvas") as HTMLDivElement
+		const leftOffcanvasOC = new Offcanvas(leftOffcanvas)
+
+		// Remove any existing custom category accordion items
+		const existingCustoms = leftOffcanvasAccordion.getElementsByClassName("custom-category-accordion-item")
+		while (existingCustoms.length > 0) {
+			existingCustoms[0].remove()
+		}
+
+		// Render each custom category
+		for (const cat of this.customCategories) {
+			const collapseGroupID = "collapseGroup-custom-" + cat.name.replace(/[^\d\w\-\_]+/gi, "-")
+
+			const accordionGroup = document.createElement("div")
+			accordionGroup.classList.add("accordion-item", "custom-category-accordion-item")
+
+			const accordionItemHeader = accordionGroup.appendChild(document.createElement("h2"))
+			accordionItemHeader.classList.add("accordion-header")
+
+			// Header button
+			const accordionItemButton = accordionItemHeader.appendChild(document.createElement("button"))
+			accordionItemButton.classList.add("accordion-button")
+			accordionItemButton.innerText = cat.name
+			accordionItemButton.setAttribute("aria-controls", collapseGroupID)
+			accordionItemButton.setAttribute("aria-expanded", "true")
+			accordionItemButton.setAttribute("data-bs-target", "#" + collapseGroupID)
+			accordionItemButton.setAttribute("data-bs-toggle", "collapse")
+			accordionItemButton.type = "button"
+
+			// Context menu for category header (e.g. Rename / Delete category)
+			accordionItemButton.addEventListener("contextmenu", (ev) => {
+				ev.preventDefault()
+				ev.stopPropagation()
+				const menu = new ContextMenu([
+					{ result: "rename", iconText: "edit", text: "更名分類..." },
+					{ result: "delete", iconText: "delete", text: `刪除分類 "${cat.name}"` }
+				])
+				menu.openForResult(ev.clientX, ev.clientY).then(async (res) => {
+					if (res === "rename") {
+						const newName = await this.openRenameModal(`更名分類「${cat.name}」`, cat.name)
+						if (newName) this.renameCustomCategory(cat.name, newName)
+					} else if (res === "delete") {
+						if (confirm(`確定要刪除分類 "${cat.name}" 嗎？`)) {
+							this.deleteCustomCategory(cat.name)
+						}
+					}
+				}).catch(() => {})
+			})
+
+			const accordionItemCollapse = accordionGroup.appendChild(document.createElement("div"))
+			accordionItemCollapse.classList.add("accordion-collapse", "collapse", "show")
+			accordionItemCollapse.id = collapseGroupID
+			accordionItemCollapse.setAttribute("data-bs-parent", "#leftOffcanvasAccordion")
+
+			const accordionItemBody = accordionItemCollapse.appendChild(document.createElement("div"))
+			accordionItemBody.classList.add("accordion-body", "iconLibAccordionBody")
+
+			for (const symbolId of cat.symbolIds) {
+				const standardSymbol = this.symbols.find(s => s.tikzName === symbolId)
+				const customSymbol = this.customSymbols.find(s => s.id === symbolId || s.id === "custom-" + symbolId)
+
+				if (!standardSymbol && !customSymbol) continue
+
+				const addButton: HTMLDivElement = accordionItemBody.appendChild(document.createElement("div"))
+				addButton.classList.add("libComponent")
+				addButton.ariaRoleDescription = "button"
+
+				// Context menu for symbol inside custom category
+				addButton.addEventListener("contextmenu", (ev) => {
+					ev.preventDefault()
+					ev.stopPropagation()
+					if (customSymbol) {
+						if (customSymbol.isCustomSymbol) {
+							// Custom graphics symbol: edit / rename / remove / delete
+							const menu = new ContextMenu([
+								{ result: "edit", iconText: "edit", text: "編輯符號 (Edit)..." },
+								{ result: "rename", iconText: "drive_file_rename_outline", text: "更名符號..." },
+								{ result: "remove", iconText: "playlist_remove", text: "從此分類移除" },
+								{ result: "delete", iconText: "delete", text: "刪除自訂符號定義" }
+							])
+							menu.openForResult(ev.clientX, ev.clientY).then(async (res) => {
+								if (res === "edit") {
+									SymbolEditorController.instance.open(customSymbol.id)
+								} else if (res === "rename") {
+									const newName = await this.openRenameModal(`更名自訂符號「${symbolId}」`, symbolId)
+									if (newName) this.renameCustomGraphicsSymbol(symbolId, newName)
+								} else if (res === "remove") {
+									this.removeSymbolFromCategory(cat.name, symbolId)
+								} else if (res === "delete") {
+									if (confirm(`確定要完全刪除自訂符號 "${symbolId}" 嗎？\n（畫布上已放置的元件不受影響）`)) {
+										this.deleteCustomGraphicsSymbol(symbolId)
+									}
+								}
+							}).catch(() => {})
+						} else {
+							// Subcircuit: rename / remove / delete all
+							const menu = new ContextMenu([
+								{ result: "rename", iconText: "edit", text: "更名子電路..." },
+								{ result: "remove", iconText: "playlist_remove", text: "從此分類移除" },
+								{ result: "delete", iconText: "delete", text: "刪除子電路定義" }
+							])
+							menu.openForResult(ev.clientX, ev.clientY).then(async (res) => {
+								if (res === "rename") {
+									const newName = await this.openRenameModal(`更名子電路「${customSymbol.displayName}」`, customSymbol.displayName)
+									if (newName) this.renameCustomSymbol(customSymbol.id, newName)
+								} else if (res === "remove") {
+									this.removeSymbolFromCategory(cat.name, symbolId)
+								} else if (res === "delete") {
+									if (confirm(`確定要完全刪除子電路 "${customSymbol.displayName}" 嗎？\n（畫布上已放置的元件不受影響）`)) {
+										this.deleteCustomSymbol(symbolId)
+									}
+								}
+							}).catch(() => {})
+						}
+					} else {
+						// Standard symbol: only remove from category
+						const menu = new ContextMenu([
+							{ result: "remove", iconText: "playlist_remove", text: "從此分類移除" }
+						])
+						menu.openForResult(ev.clientX, ev.clientY).then((res) => {
+							if (res === "remove") this.removeSymbolFromCategory(cat.name, symbolId)
+						}).catch(() => {})
+					}
+				})
+
+				if (standardSymbol) {
+					addButton.setAttribute("searchData", [standardSymbol.tikzName, standardSymbol.isNodeSymbol ? "node" : "path"].join(" "))
+					addButton.title = standardSymbol.displayName || standardSymbol.tikzName
+
+					const listener = (ev: MouseEvent) => {
+						if (ev.button !== 0) return
+						ev.preventDefault()
+						this.switchMode(Modes.COMPONENT)
+						if (ComponentPlacer.instance.component) {
+							ComponentPlacer.instance.placeCancel()
+						}
+						let newComponent: CircuitComponent
+						if (standardSymbol.isNodeSymbol) {
+							newComponent = new NodeSymbolComponent(standardSymbol)
+						} else {
+							newComponent = new PathSymbolComponent(standardSymbol)
+						}
+						ComponentPlacer.instance.placeComponent(newComponent)
+						leftOffcanvasOC.hide()
+					}
+					addButton.addEventListener("mouseup", listener)
+					addButton.addEventListener("touchstart", listener, { passive: false })
+
+					// Visio style double-click to edit custom symbol
+					addButton.addEventListener("dblclick", (ev) => {
+						ev.preventDefault()
+						ev.stopPropagation()
+						if (customSymbol && customSymbol.isCustomSymbol) {
+							SymbolEditorController.instance.open(customSymbol.id)
+						}
+					})
+
+					let svgIcon = SVG.SVG().addTo(addButton)
+					let viewBox = new SVG.Box(standardSymbol._mapping.values().toArray()[0].viewBox)
+					viewBox.width += standardSymbol.maxStroke
+					viewBox.height += standardSymbol.maxStroke
+					viewBox.x -= standardSymbol.maxStroke / 2
+					viewBox.y -= standardSymbol.maxStroke / 2
+					svgIcon.viewbox(viewBox).width(viewBox.width).height(viewBox.height)
+					let use = svgIcon.use(standardSymbol.symbolElement.id())
+					use.width(standardSymbol.viewBox.width).height(standardSymbol.viewBox.height)
+					use.stroke(defaultStroke).fill(defaultFill).node.style.color = defaultStroke
+				} else if (customSymbol) {
+					addButton.setAttribute("searchData", customSymbol.displayName || customSymbol.tikzName)
+					addButton.title = customSymbol.displayName
+
+					const listener = (ev: MouseEvent) => {
+						if (ev.button !== 0) return
+						ev.preventDefault()
+						this.switchMode(Modes.COMPONENT)
+						if (ComponentPlacer.instance.component) {
+							ComponentPlacer.instance.placeCancel()
+						}
+						const sub = SubcircuitComponent.fromJson(customSymbol.subcircuitData)
+						ComponentPlacer.instance.placeComponent(sub)
+						leftOffcanvasOC.hide()
+					}
+					addButton.addEventListener("mouseup", listener)
+					addButton.addEventListener("touchstart", listener, { passive: false })
+
+					// Invalidate stale preview (legacy: contained <use> referencing doc-level defs)
+					if (customSymbol.svgPreview && customSymbol.svgPreview.includes("<use ")) {
+						customSymbol.svgPreview = null
+					}
+					if (customSymbol.svgPreview) {
+						addButton.innerHTML = customSymbol.svgPreview
+					} else {
+						// Generate preview on the fly and save to DB
+						this.generateSubcircuitSvgPreview(customSymbol.subcircuitData).then((preview) => {
+							if (preview) {
+								customSymbol.svgPreview = preview
+								addButton.innerHTML = preview
+								const symTx = this.db.transaction("customSymbols", "readwrite")
+								symTx.objectStore("customSymbols").put(customSymbol)
+							} else {
+								// fallback to original placeholder
+								let svgIcon = SVG.SVG().addTo(addButton)
+								svgIcon.viewbox(0, 0, 30, 15).width(30).height(15)
+								// Draw a cute Visio style block
+								svgIcon.rect(26, 12).move(2, 1.5).fill("none").stroke({ color: defaultStroke, width: 1 })
+								svgIcon.text((add) => {
+									add.tspan(customSymbol.displayName.substring(0, 4)).font({ size: 6 }).fill({ color: defaultStroke }).move(5, 9)
+								})
+							}
+						})
+					}
+				}
+			}
+
+			// Prepend custom categories to accordion so they appear at the top of the Symbols drawer!
+			if (leftOffcanvasAccordion.firstChild) {
+				leftOffcanvasAccordion.insertBefore(accordionGroup, leftOffcanvasAccordion.firstChild)
+			} else {
+				leftOffcanvasAccordion.appendChild(accordionGroup)
+			}
+		}
+	}
+
+	public async addCustomCategory(name: string) {
+		name = name.trim()
+		if (!name) return
+		const transaction = this.db.transaction("customCategories", "readwrite")
+		const store = transaction.objectStore("customCategories")
+		store.put({ name, symbolIds: [] }).onsuccess = () => {
+			this.loadAndRenderCustomCategories()
+		}
+	}
+
+	public async deleteCustomCategory(name: string) {
+		const transaction = this.db.transaction("customCategories", "readwrite")
+		const store = transaction.objectStore("customCategories")
+		store.delete(name).onsuccess = () => {
+			this.loadAndRenderCustomCategories()
+		}
+	}
+
+	/**
+	 * Opens a Bootstrap Modal for user to input a new name.
+	 * Returns the trimmed string, or null if cancelled / empty.
+	 */
+	private openRenameModal(title: string, currentName: string): Promise<string | null> {
+		return new Promise((resolve) => {
+			const modalEl = document.getElementById("renameModal") as HTMLDivElement
+			const input = document.getElementById("renameModalInput") as HTMLInputElement
+			const label = document.getElementById("renameModalLabel") as HTMLElement
+			const confirmBtn = document.getElementById("renameModalConfirm") as HTMLButtonElement
+
+			label.textContent = title
+			input.value = currentName
+
+			const bsModal = new Modal(modalEl)
+
+			const cleanup = () => {
+				confirmBtn.removeEventListener("click", onConfirm)
+				input.removeEventListener("keydown", onKeydown)
+				modalEl.removeEventListener("hidden.bs.modal", onDismiss)
+			}
+			const onConfirm = () => {
+				const val = input.value.trim() || null
+				cleanup()
+				bsModal.hide()
+				resolve(val)
+			}
+			const onDismiss = () => {
+				cleanup()
+				resolve(null)
+			}
+			const onKeydown = (ev: KeyboardEvent) => {
+				if (ev.key === "Enter") onConfirm()
+			}
+
+			confirmBtn.addEventListener("click", onConfirm, { once: true })
+			input.addEventListener("keydown", onKeydown)
+			modalEl.addEventListener("hidden.bs.modal", onDismiss, { once: true })
+			modalEl.addEventListener("shown.bs.modal", () => { input.focus(); input.select() }, { once: true })
+
+			bsModal.show()
+		})
+	}
+
+	/**
+	 * Renames a custom category. Because keyPath = "name", we delete + re-add.
+	 * Subcircuit displayNames/tikzNames are NOT changed (category is just a container).
+	 */
+	public async renameCustomCategory(oldName: string, newName: string) {
+		newName = newName.trim()
+		if (!newName || newName === oldName) return
+
+		const transaction = this.db.transaction("customCategories", "readwrite")
+		const catStore = transaction.objectStore("customCategories")
+		catStore.get(oldName).onsuccess = (ev) => {
+			const cat = (ev.target as IDBRequest).result
+			if (!cat) return
+			catStore.delete(oldName)
+			cat.name = newName
+			catStore.put(cat)
+			transaction.oncomplete = () => this.loadAndRenderCustomCategories()
+		}
+	}
+
+	/**
+	 * Renames a custom subcircuit symbol: updates DB record, all category symbolIds,
+	 * and any placed SubcircuitComponents on the canvas.
+	 */
+	public async renameCustomSymbol(symbolId: string, newName: string) {
+		newName = newName.trim()
+		if (!newName) return
+
+		const symTx = this.db.transaction("customSymbols", "readwrite")
+		const symStore = symTx.objectStore("customSymbols")
+		symStore.get(symbolId).onsuccess = (ev) => {
+			const sym = (ev.target as IDBRequest).result
+			if (!sym) return
+			const oldName = sym.displayName
+			const newId = "subcircuit-" + newName
+
+			sym.displayName = newName
+			sym.tikzName = newName
+			sym.id = newId
+			if (sym.subcircuitData) {
+				sym.subcircuitData.displayName = newName
+			}
+
+			symStore.delete(symbolId)
+			symStore.put(sym)
+			symTx.oncomplete = () => {
+				this._updateSymbolIdInCategories(symbolId, newId, oldName, newName)
+			}
+		}
+	}
+
+	/** Updates all category symbolIds after a subcircuit rename, then syncs canvas components. */
+	private _updateSymbolIdInCategories(oldId: string, newId: string, oldName: string, newName: string) {
+		const catTx = this.db.transaction("customCategories", "readwrite")
+		const catStore = catTx.objectStore("customCategories")
+		catStore.getAll().onsuccess = (ev) => {
+			const cats: { name: string; symbolIds: string[] }[] = (ev.target as IDBRequest).result || []
+			for (const cat of cats) {
+				const idx = cat.symbolIds.indexOf(oldId)
+				if (idx >= 0) {
+					cat.symbolIds[idx] = newId
+					catStore.put(cat)
+				}
+			}
+			// Sync canvas SubcircuitComponents
+			for (const comp of this.circuitComponents) {
+				if ((comp as any).displayName === oldName) {
+					(comp as any).displayName = newName
+				}
+			}
+			catTx.oncomplete = () => this.loadAndRenderCustomCategories()
+		}
+	}
+
+	/**
+	 * Permanently deletes a subcircuit definition:
+	 * removes it from all categories and from customSymbols DB.
+	 * Canvas components already placed are NOT removed.
+	 */
+	public async deleteCustomSymbol(symbolId: string) {
+		const catTx = this.db.transaction("customCategories", "readwrite")
+		const catStore = catTx.objectStore("customCategories")
+		catStore.getAll().onsuccess = (ev) => {
+			const cats: { name: string; symbolIds: string[] }[] = (ev.target as IDBRequest).result || []
+			for (const cat of cats) {
+				if (cat.symbolIds.includes(symbolId)) {
+					cat.symbolIds = cat.symbolIds.filter((id: string) => id !== symbolId)
+					catStore.put(cat)
+				}
+			}
+			catTx.oncomplete = () => {
+				const symTx = this.db.transaction("customSymbols", "readwrite")
+				symTx.objectStore("customSymbols").delete(symbolId).onsuccess = () => {
+					this.loadAndRenderCustomCategories()
+				}
+			}
+		}
+	}
+
+	public async addSymbolToCategory(categoryName: string, symbolId: string, customSymbolData?: any) {
+		if (customSymbolData && customSymbolData.subcircuitData && !customSymbolData.svgPreview) {
+			try {
+				const preview = await this.generateSubcircuitSvgPreview(customSymbolData.subcircuitData)
+				if (preview) {
+					customSymbolData.svgPreview = preview
+				}
+			} catch (e) {
+				console.error("Failed to generate preview during addSymbolToCategory:", e)
+			}
+		}
+
+		const transaction = this.db.transaction(["customCategories", "customSymbols"], "readwrite")
+		const catStore = transaction.objectStore("customCategories")
+		const symStore = transaction.objectStore("customSymbols")
+
+		if (customSymbolData) {
+			symStore.put(customSymbolData)
+		}
+
+		catStore.get(categoryName).onsuccess = (ev) => {
+			const cat = (ev.target as IDBRequest).result
+			if (cat) {
+				if (!cat.symbolIds.includes(symbolId)) {
+					cat.symbolIds.push(symbolId)
+					catStore.put(cat).onsuccess = () => {
+						this.loadAndRenderCustomCategories()
+					}
+				}
+			}
+		}
+	}
+
+	public async removeSymbolFromCategory(categoryName: string, symbolId: string) {
+		const transaction = this.db.transaction("customCategories", "readwrite")
+		const store = transaction.objectStore("customCategories")
+		store.get(categoryName).onsuccess = (ev) => {
+			const cat = (ev.target as IDBRequest).result
+			if (cat) {
+				cat.symbolIds = cat.symbolIds.filter((id: string) => id !== symbolId)
+				store.put(cat).onsuccess = () => {
+					this.loadAndRenderCustomCategories()
+				}
+			}
+		}
+	}
+
+	public async createSubcircuitFromSelection() {
+		let selected = SelectionController.instance.currentlySelectedComponents
+		if (selected.length === 0) {
+			alert("請先選取要建立自訂元件的元器件！")
+			return
+		}
+
+		let groupComp: GroupComponent
+		if (selected.length === 1 && (selected[0] instanceof GroupComponent || selected[0].constructor.name === "GroupComponent" || selected[0].constructor.name === "SubcircuitComponent")) {
+			groupComp = selected[0] as GroupComponent
+		} else {
+			// 先將複數元件進行 Group
+			GroupComponent.group(selected)
+			const newSelected = SelectionController.instance.currentlySelectedComponents
+			if (newSelected.length === 1 && (newSelected[0] instanceof GroupComponent || newSelected[0].constructor.name === "GroupComponent")) {
+				groupComp = newSelected[0] as GroupComponent
+			} else {
+				alert("建立群組失敗，無法存為自訂元件！")
+				return
+			}
+		}
+
+		this.openSaveSymbolModal(groupComp)
+	}
+
+	private openSaveSymbolModal(group: GroupComponent) {
+		const modalEl = document.getElementById("saveSymbolModal") as HTMLDivElement
+		const nameInput = document.getElementById("saveSymbolNameInput") as HTMLInputElement
+		const categorySelect = document.getElementById("saveSymbolCategorySelect") as HTMLSelectElement
+		const newCategoryContainer = document.getElementById("saveSymbolNewCategoryContainer") as HTMLDivElement
+		const newCategoryInput = document.getElementById("saveSymbolNewCategoryInput") as HTMLInputElement
+		const confirmBtn = document.getElementById("saveSymbolModalConfirm") as HTMLButtonElement
+
+		nameInput.value = group.displayName !== "Group" ? group.displayName : ""
+		newCategoryInput.value = ""
+		newCategoryContainer.classList.add("d-none")
+
+		categorySelect.innerHTML = ""
+		for (const cat of this.customCategories) {
+			const opt = document.createElement("option")
+			opt.value = cat.name
+			opt.textContent = cat.name
+			categorySelect.appendChild(opt)
+		}
+
+		if (this.customCategories.length === 0) {
+			const opt = document.createElement("option")
+			opt.value = "我的最愛"
+			opt.textContent = "我的最愛"
+			categorySelect.appendChild(opt)
+		}
+
+		const newCatOpt = document.createElement("option")
+		newCatOpt.value = "__NEW_CATEGORY__"
+		newCatOpt.textContent = "+ 新增分類..."
+		categorySelect.appendChild(newCatOpt)
+
+		const onCategoryChange = () => {
+			if (categorySelect.value === "__NEW_CATEGORY__") {
+				newCategoryContainer.classList.remove("d-none")
+			} else {
+				newCategoryContainer.classList.add("d-none")
+			}
+		}
+		categorySelect.addEventListener("change", onCategoryChange)
+
+		const bsModal = new Modal(modalEl)
+
+		const cleanup = () => {
+			categorySelect.removeEventListener("change", onCategoryChange)
+			confirmBtn.onclick = null
+		}
+
+		confirmBtn.onclick = async () => {
+			let name = nameInput.value.trim()
+			if (!name) {
+				alert("請輸入元件名稱！")
+				return
+			}
+
+			let finalName = name
+			let suffix = 2
+			while (this.customSymbols.some(s => s.displayName === finalName)) {
+				finalName = `${name} (${suffix})`
+				suffix++
+			}
+
+			let categoryName = categorySelect.value
+			if (categoryName === "__NEW_CATEGORY__") {
+				categoryName = newCategoryInput.value.trim()
+				if (!categoryName) {
+					alert("請輸入新分類名稱！")
+					return
+				}
+				if (!this.customCategories.some(c => c.name === categoryName)) {
+					await this.addCustomCategory(categoryName)
+				}
+			}
+
+			const idx = this.circuitComponents.indexOf(group)
+			if (idx === -1) {
+				alert("找不到群組物件，無法儲存！")
+				bsModal.hide()
+				return
+			}
+
+			const children = [...group.groupedComponents]
+			
+			// 移除 GroupComponent，但把子元件先放回 circuitComponents
+			this.circuitComponents.splice(idx, 1, ...children)
+			group.groupedComponents = []
+			group.selectionElement?.remove()
+			group.visualization.remove()
+
+			// 建立 SubcircuitComponent
+			const sub = new SubcircuitComponent(finalName, children)
+			const subJson = sub.toJson()
+
+			const symbolId = "subcircuit-" + finalName
+			const customSymbolData = {
+				id: symbolId,
+				type: "subcircuit",
+				tikzName: finalName,
+				displayName: finalName,
+				isNodeSymbol: false,
+				subcircuitData: subJson
+			}
+
+			await this.addSymbolToCategory(categoryName, symbolId, customSymbolData)
+
+			Undo.addState()
+			bsModal.hide()
+		}
+
+		modalEl.addEventListener("hidden.bs.modal", cleanup, { once: true })
+		modalEl.addEventListener("shown.bs.modal", () => {
+			nameInput.focus()
+			nameInput.select()
+		}, { once: true })
+
+		bsModal.show()
+	}
+
+	private async generateSubcircuitSvgPreview(subcircuitData: any): Promise<string | null> {
+		if (!subcircuitData || !subcircuitData.components) return null
+
+		const tempComponents: CircuitComponent[] = []
+		const offscreenSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg")
+		offscreenSvg.setAttribute("style", "position: absolute; top: -9999px; left: -9999px; visibility: hidden; width: 500px; height: 500px;")
+		document.body.appendChild(offscreenSvg)
+
+		try {
+			for (const saveObj of subcircuitData.components) {
+				const comp = CircuitComponent.fromJson(saveObj)
+				if (comp) {
+					tempComponents.push(comp)
+					comp.update()
+				}
+			}
+
+			if (tempComponents.length === 0) {
+				document.body.removeChild(offscreenSvg)
+				return null
+			}
+
+			const defsMap = new Map<string, SVG.Element>()
+			const innerGroup = document.createElementNS("http://www.w3.org/2000/svg", "g")
+			offscreenSvg.appendChild(innerGroup)
+
+			for (const comp of tempComponents) {
+				const clonedNode = comp.toSVG(defsMap).node
+				innerGroup.appendChild(clonedNode)
+			}
+
+			// Inline all <use> elements so the final SVG is self-contained (no doc-level defs needed)
+			const uses = Array.from(innerGroup.querySelectorAll("use"))
+			for (const use of uses) {
+				const href = use.getAttribute("xlink:href") || use.getAttribute("href")
+				if (!href?.startsWith("#")) continue
+				const id = href.slice(1)
+				// Look in defsMap first (SVG.Element), then fall back to document
+				const symbolNode: Element | null = defsMap.has(id)
+					? (defsMap.get(id)!.node as Element)
+					: document.getElementById(id)
+				if (!symbolNode) continue
+
+				// Wrap symbol's children in a <g>, applying the <use>'s transform, position, scale and inherited colors
+				const g = document.createElementNS("http://www.w3.org/2000/svg", "g")
+				
+				let finalTransform = ""
+				const ux = parseFloat(use.getAttribute("x") || "0")
+				const uy = parseFloat(use.getAttribute("y") || "0")
+				if (ux !== 0 || uy !== 0) {
+					finalTransform += `translate(${ux}, ${uy}) `
+				}
+				const transform = use.getAttribute("transform")
+				if (transform) {
+					finalTransform += transform + " "
+				}
+				if (symbolNode.tagName.toLowerCase() === "symbol") {
+					const viewBoxStr = symbolNode.getAttribute("viewBox")
+					if (viewBoxStr) {
+						const parts = viewBoxStr.trim().split(/[\s,]+/)
+						if (parts.length === 4) {
+							const vx = parseFloat(parts[0])
+							const vy = parseFloat(parts[1])
+							const vw = parseFloat(parts[2])
+							const vh = parseFloat(parts[3])
+							
+							const uwAttr = use.getAttribute("width")
+							const uhAttr = use.getAttribute("height")
+							const uw = uwAttr ? parseFloat(uwAttr) : vw
+							const uh = uhAttr ? parseFloat(uhAttr) : vh
+							
+							const scaleX = uw / vw
+							const scaleY = uh / vh
+							
+							finalTransform += `scale(${scaleX}, ${scaleY}) translate(${-vx}, ${-vy}) `
+						}
+					}
+				}
+				if (finalTransform.trim()) {
+					g.setAttribute("transform", finalTransform.trim())
+				}
+
+				const cls = use.getAttribute("class")
+				if (cls) g.setAttribute("class", cls)
+
+				const stroke = use.getAttribute("stroke") || use.style.stroke
+				const fill = use.getAttribute("fill") || use.style.fill
+				const color = use.getAttribute("color") || use.style.color
+				if (stroke) g.setAttribute("stroke", stroke)
+				if (fill) g.setAttribute("fill", fill)
+				if (color) g.setAttribute("color", color)
+
+				// Symbol children (skip <title>)
+				const source = symbolNode.tagName.toLowerCase() === "symbol" ? symbolNode : symbolNode
+				for (const child of Array.from(source.childNodes)) {
+					if ((child as Element).tagName === "title") continue
+					g.appendChild(child.cloneNode(true))
+				}
+				use.parentNode?.replaceChild(g, use)
+			}
+
+			await new Promise((resolve) => requestAnimationFrame(resolve))
+			const bbox = innerGroup.getBBox()
+
+			if (bbox.width === 0 && bbox.height === 0) {
+				document.body.removeChild(offscreenSvg)
+				return null
+			}
+
+			const padding = 5
+			const finalSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg")
+			finalSvg.setAttribute("viewBox", `${bbox.x - padding} ${bbox.y - padding} ${bbox.width + padding * 2} ${bbox.height + padding * 2}`)
+			finalSvg.setAttribute("width", "48")
+			finalSvg.setAttribute("height", "48")
+			finalSvg.appendChild(innerGroup)
+
+			document.body.removeChild(offscreenSvg)
+			return new XMLSerializer().serializeToString(finalSvg)
+		} catch (err) {
+			console.error("Error generating subcircuit preview:", err)
+			if (offscreenSvg.parentNode) document.body.removeChild(offscreenSvg)
+			return null
+		} finally {
+			for (const comp of tempComponents) {
+				try {
+					this.removeComponent(comp)
+				} catch (e) {
+					console.error("Error cleaning up temporary component", e)
+				}
+			}
+		}
+	}
+
+	public getCustomSubcircuitsTikzset(): string {
+		const subs = this.circuitComponents.filter(c => c.constructor.name === "SubcircuitComponent" || (c as any).groupedComponents && (c as any).displayName && c.toTikzString().includes("pic")) as SubcircuitComponent[]
+		if (subs.length === 0) return ""
+
+		const processed = new Set<string>()
+		const definitions: string[] = []
+
+		for (const sub of subs) {
+			if (processed.has(sub.displayName)) continue
+			processed.add(sub.displayName)
+
+			const originalPos = sub.position
+			const rel = new SVG.Point(0, 0).sub(originalPos)
+			for (const component of sub.groupedComponents) {
+				component.moveRel(rel)
+			}
+			const lines = sub.groupedComponents.map(c => "\t\t" + c.toTikzString())
+			const relBack = originalPos.sub(new SVG.Point(0, 0))
+			for (const component of sub.groupedComponents) {
+				component.moveRel(relBack)
+			}
+
+			definitions.push(`\t${sub.displayName}/.pic={\n${lines.join("\n")}\n\t}`)
+		}
+
+		return `\\tikzset{\n${definitions.join(",\n")}\n}`
+	}
+
+	public getCustomSymbolsTikzset(): string {
+		const customSymbolNames = new Set<string>()
+		for (const comp of this.circuitComponents) {
+			if ((comp as any).referenceSymbol && (comp as any).referenceSymbol.isCustomSymbol) {
+				customSymbolNames.add((comp as any).referenceSymbol.tikzName)
+			}
+		}
+
+		if (customSymbolNames.size === 0) return ""
+
+		const definitions: string[] = []
+
+		for (const tikzName of customSymbolNames) {
+			const customSymbol = this.customSymbols.find(s => s.tikzName === tikzName)
+			if (!customSymbol) continue
+
+			const baseSymbol = customSymbol.baseSymbol || (tikzName.toLowerCase().includes("pmos") ? "pmos" : "nmos")
+
+			definitions.push(`\t${tikzName}/.style={${baseSymbol}}`)
+		}
+
+		return `\\tikzset{\n${definitions.join(",\n")}\n}`
 	}
 }

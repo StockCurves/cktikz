@@ -241,6 +241,10 @@ export class ShortComponent extends Currentable(PathLabelable(PathComponent)) {
 	}
 
 	public update(): void {
+		if (!this.referencePoints || this.referencePoints.length < 2) {
+			this.position = new SVG.Point(0, 0)
+			return
+		}
 		this.position = this.referencePoints[0].add(this.referencePoints[1]).div(2)
 
 		const angle = Math.atan2(

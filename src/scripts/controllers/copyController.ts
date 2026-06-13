@@ -34,6 +34,7 @@ export class CopyPaste {
 			}
 
 			let bbox = SelectionController.instance.getOverallBoundingBox()
+			if (!bbox) return
 
 			CopyPaste.clipboard = {
 				components: components,

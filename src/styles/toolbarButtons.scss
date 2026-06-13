@@ -2,23 +2,36 @@
 
 .toolbarButton {
 	@extend .user-select-none;
-	display: block;
-	padding: 0px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding: 8px;
 	margin: 0px;
-	height: 1em;
-	border-radius: 20px;
+	width: 42px;
+	height: 42px;
+	border-radius: 8px;
 	text-align: center;
 	text-decoration: none;
-	color: var(--bs-emphasis-color);
-	font-size: 32px !important;
-	text-shadow: 2px 2px 2px #888;
+	color: var(--text-main);
+	font-size: 24px !important;
+	transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+	cursor: pointer;
+
+	&:hover {
+		background-color: var(--primary-light);
+		color: var(--primary);
+		transform: translateY(-1px);
+	}
 }
 
-.toolbarButton:hover,
 .toolbarButton.selected {
-	text-shadow: 2px 2px 4px #888;
+	background-color: var(--primary);
+	color: white !important;
+	box-shadow: var(--shadow-sm);
+	
+	&:hover {
+		background-color: var(--primary-hover);
+		color: white !important;
+	}
 }
 
-.toolbarButton.selected {
-	text-decoration: underline;
-}

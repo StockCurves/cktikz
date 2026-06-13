@@ -129,6 +129,8 @@ export class ExportController {
 					"\\usetikzlibrary{" + requiredTikzLibraries.values().toArray().join(", ") + "}"
 				:	""
 
+			const subcircuitsTikzset = MainController.instance.getCustomSubcircuitsTikzset()
+			const customSymbolsTikzset = MainController.instance.getCustomSymbolsTikzset()
 			const tikzSettings = EnvironmentVariableController.instance.getTikzSettings()
 			let arr = [
 				"\\begin{tikzpicture}" + "[" + ["transform shape"].concat(tikzSettings.environment).join(", ") + "]",
@@ -137,6 +139,12 @@ export class ExportController {
 				...circuitElements,
 				"\\end{tikzpicture}",
 			]
+			if (customSymbolsTikzset) {
+				arr = [customSymbolsTikzset].concat(arr)
+			}
+			if (subcircuitsTikzset) {
+				arr = [subcircuitsTikzset].concat(arr)
+			}
 			if (libraryStr) {
 				arr = [libraryStr].concat(arr)
 			}
