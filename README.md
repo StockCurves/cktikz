@@ -1,13 +1,24 @@
-# CircuiTi*k*Z-Designer
+# CircuiTi*k*Z-Designer (Forked Edition)
 
-[![License](https://img.shields.io/github/license/circuit2tikz/circuitikz-designer)](LICENSE)
-![GitHub last commit (dev)](https://img.shields.io/github/last-commit/circuit2tikz/circuitikz-designer/dev)
-![GitHub commit activity (dev)](https://img.shields.io/github/commit-activity/m/circuit2tikz/circuitikz-designer/dev)
-![GitHub Issues or Pull Requests](https://img.shields.io/github/issues/circuit2tikz/circuitikz-designer)
+> [!IMPORTANT]
+> This repository is a fork of the original [CircuiTi*k*Z-Designer](https://github.com/Circuit2TikZ/CircuiTikZ-Designer). We have introduced a range of powerful new features to enhance custom component editing, TikZ synchronization, and the design workflow.
 
-An interactive, visual, online editor for creating electrical circuit diagrams for LaTeX/CircuiTi*k*Z with ease. Try it out [online](https://circuit2tikz.tf.fau.de/designer/)!
+## Implemented Features
 
-## Overview
+This fork adds the following capabilities and improvements:
+
+1. **TikZ Editor & GUI Sync**: Real-time synchronization between the TikZ code editor and the GUI canvas. Changes in code are instantly reflected in the visual designer.
+2. **Custom Categories & Subcircuits**: Organize your design workspace with custom component categories and custom subcircuits.
+3. **Context Menu Actions**: Rich context menus to rename and delete subcircuits and custom components.
+4. **Visual Subcircuit Thumbnails**: Replaced generic box representations in the symbols panel with actual, accurate graphical previews of your subcircuits.
+5. **Symbol Grouping**: Combine multiple components together into custom, reusable grouped symbols.
+6. **Visio-Style Custom Symbol Editor**: Inspect and modify sub-path attributes (like thickness, coordinates, etc.) of custom components dynamically.
+7. **Premium Academic Brand Refresh**: Redesigned UI styling with a tailored dark mode palette, smooth gradients, and reduced clutter for a premium academic workspace.
+8. **Robust TikZ Export**: Support for exporting custom grouped symbols, modified transistor paths, and custom subcircuits cleanly to compilable TikZ code.
+
+---
+
+## Original Overview
 
 CircuiTi*k*Z-Designer bridges the gap between visual circuit design and precise LaTeX code, letting you design, customize, and export diagrams without manually writing TikZ commands.
 Whether you’re preparing academic papers, teaching materials, or engineering documentation, CircuiTi*k*Z-Designer provides:
