@@ -2,16 +2,7 @@
 	overflow-y: auto;
 }
 
-#propertiesContainer {
-	background-color: var(--bg-panel);
-	border-left: 1px solid var(--border-color) !important;
-	box-shadow: var(--shadow-sm);
-}
 
-#properties {
-	background-color: var(--bg-panel) !important;
-	border: none !important;
-}
 
 #propertiesTitle {
 	font-family: var(--font-sans);
@@ -19,12 +10,12 @@
 	font-weight: 700;
 	color: var(--text-main);
 	letter-spacing: -0.2px;
-	padding: 16px !important;
-	border-bottom: 1px solid var(--border-color);
+	padding: 12px 16px 4px 16px !important;
+	border-bottom: none !important;
 }
 
 #properties-content {
-	padding: 20px 16px !important;
+	padding: 8px 16px 16px 16px !important;
 	font-size: 13.5px;
 	color: var(--text-main);
 

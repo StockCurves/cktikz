@@ -55,6 +55,14 @@ vi.mock("@svgdotjs/svg.js", () => {
 		rotate(_angle: number) { return this }
 		sub(other: MockPoint) { return new MockPoint(this.x - other.x, this.y - other.y) }
 		add(other: MockPoint) { return new MockPoint(this.x + other.x, this.y + other.y) }
+		mul(val: any) {
+			if (typeof val === "number") return new MockPoint(this.x * val, this.y * val)
+			return new MockPoint(this.x * val.x, this.y * val.y)
+		}
+		div(val: any) {
+			if (typeof val === "number") return new MockPoint(this.x / val, this.y / val)
+			return new MockPoint(this.x / val.x, this.y / val.y)
+		}
 		simplifyForJson() { return { x: this.x, y: this.y } }
 	}
 	return {
@@ -107,5 +115,14 @@ describe("parseTikz parser lint relaxation", () => {
 		\\draw ( 13.75, 2.0) to[R=$R_L$] ( 13.75,-1.5);
 		\\end{circuitikz}`;
 		expect(() => parseTikz(userComplex)).not.toThrow();
+	});
+
+	it("should parse node labels and set isMath correctly", () => {
+		const code = `\\node[anchor=west] at (7.5, 2.5) {$V_{out}$};`;
+		const result = parseTikz(code);
+		expect(result).toHaveLength(1);
+		expect(result[0].type).toBe("rect");
+		expect(result[0].text.text).toBe("V_{out}");
+		expect(result[0].text.isMath).toBe(true);
 	});
 });

@@ -746,7 +746,12 @@ export class WireComponent extends Strokable(PathComponent) {
 
 	public applyJson(saveObject: WireSaveObject): void {
 		super.applyJson(saveObject)
-		this.wireDirections = saveObject.directions ?? []
+		this.wireDirections = (saveObject.directions ?? []).map((dir: any) => {
+			if (dir === "Straight") return WireDirection.Straight
+			if (dir === "HV") return WireDirection.HV
+			if (dir === "VH") return WireDirection.VH
+			return dir
+		})
 		while (this.wireDirections.length < this.referencePoints.length - 1) {
 			this.wireDirections.push(WireDirection.Straight)
 		}

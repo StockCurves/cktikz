@@ -50,7 +50,13 @@ export function convertTextToNativeSVGText(text: Text, textBox: SVG.Box, useHyph
 	// used to parse the text into text and mathjax elements
 	const mathjaxParser = new MathjaxParser()
 
-	const explicitLines = text.text.split("\n").map((line) => line.trim())
+	const explicitLines = text.text.split("\n").map((line) => {
+		let trimmed = line.trim()
+		if (text.isMath && trimmed && !trimmed.startsWith("$")) {
+			trimmed = "$" + trimmed + "$"
+		}
+		return trimmed
+	})
 
 	const lines: LineInfo[] = []
 	for (const line of explicitLines) {

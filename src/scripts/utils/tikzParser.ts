@@ -803,9 +803,9 @@ export function parseTikz(tikzCode: string): any[] {
 						currentWire.points.push(coords[i + 1]);
 					} else {
 						// Wire connector (--, -|, |-)
-						let direction = "Straight";
-						if (connectorStr === "-|") direction = "HV";
-						else if (connectorStr === "|-") direction = "VH";
+						let direction = "--";
+						if (connectorStr === "-|") direction = "-|";
+						else if (connectorStr === "|-") direction = "|-";
 
 						if (currentWire.points.length === 0) {
 							currentWire.points.push(coords[i]);

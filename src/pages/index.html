@@ -48,25 +48,12 @@
 
 	<body class="d-flex flex-column w-100 h-100">
 		<header class="navbar navbar-expand-md py-2 px-3 border-bottom shadow-sm brand-header" style="background-color: var(--bg-panel); border-color: var(--border-color) !important;">
-			<nav class="container-xxl flex-wrap flex-lg-nowrap">
+			<nav class="container-xxl flex-nowrap">
 				<a class="navbar-brand unselectable d-flex align-items-center gap-2" href=".">
 					<img src="../icons/favicon.svg" style="width: 1.8em; height: 1.8em" class="d-inline-block" />
 					<span class="fw-bold" style="font-family: var(--font-sans); letter-spacing: -0.5px; color: var(--text-main);">CkTikZ</span>
 				</a>
 				<div class="d-flex gap-2 align-items-center ms-md-auto">
-					<a
-						role="button"
-						class="toolbarButton material-symbols-outlined"
-						id="helpButton"
-						data-bs-toggle="modal"
-						data-bs-target="#helpModal"
-						data-bs-toggle-second="tooltip"
-						data-bs-trigger="hover"
-						data-bs-placement="bottom"
-						data-bs-title="Help menu"
-						style="font-size: 24px !important;">
-						help
-					</a>
 					<div class="vr me-2 d-block d-md-none"></div>
 					<button
 						class="navbar-toggler d-md-none"
@@ -92,8 +79,14 @@
 					</div>
 					<div class="offcanvas-body">
 						<ul class="navbar-nav gap-2 align-items-center">
+							<li class="nav-item col-12 col-md-auto">
+								<button class="nav-link fw-semibold active" id="btn-visual-editor" type="button">🎨 Visual Editor</button>
+							</li>
+							<li class="nav-item col-12 col-md-auto">
+								<button class="nav-link fw-semibold text-muted" id="btn-live-render" type="button">🔬 Live LaTeX Render</button>
+							</li>
 							<li class="nav-item col-12 col-md-auto d-flex align-items-center gap-2 px-2">
-								<span class="text-nowrap mb-0 small" style="color: var(--text-main);">Template:</span>
+								<span class="text-nowrap mb-0 fw-semibold" style="color: var(--text-main); font-size: 14px; font-family: var(--font-sans);">📐 Template:</span>
 								<div class="dropdown">
 									<button
 										id="template-dropdown-btn"
@@ -113,11 +106,25 @@
 								<button
 									type="button"
 									class="btn btn-outline"
+									id="helpButton"
+									data-bs-toggle="modal"
+									data-bs-target="#helpModal"
+									data-bs-toggle-second="tooltip"
+									data-bs-trigger="hover"
+									data-bs-placement="bottom"
+									data-bs-title="Help menu">
+									<span class="d-flex align-items-center justify-content-center" style="font-size: 1.15rem; line-height: 1;">❓</span>
+								</button>
+							</li>
+							<li class="nav-item col-12 col-md-auto">
+								<button
+									type="button"
+									class="btn btn-outline"
 									id="exportCircuiTikZButton"
 									data-bs-toggle="tooltip"
 									data-bs-placement="bottom"
 									data-bs-title="Toggle TikZ Editor (Ctrl+B)">
-									<span class="material-symbols-outlined d-flex align-items-center" style="font-size: 20px;">code</span>
+									<span class="d-flex align-items-center justify-content-center" style="font-size: 1.15rem; line-height: 1;">📝</span>
 								</button>
 							</li>
 							<li class="nav-item col-12 col-md-auto">
@@ -128,7 +135,7 @@
 									data-bs-toggle="tooltip"
 									data-bs-placement="bottom"
 									data-bs-title="Export the circuit as SVG code (Ctrl/⌘ + Shift + E)">
-									<span class="material-symbols-outlined d-flex align-items-center" style="font-size: 20px;">image</span>
+									<span class="d-flex align-items-center justify-content-center" style="font-size: 1.15rem; line-height: 1;">🖼️</span>
 								</button>
 							</li>
 
@@ -151,7 +158,7 @@
 									data-bs-toggle-second="tooltip"
 									data-bs-placement="bottom"
 									data-bs-title="Tab management">
-									<span class="material-symbols-outlined d-flex align-items-center" style="font-size: 20px;">tab_group</span>
+									<span class="d-flex align-items-center justify-content-center" style="font-size: 1.15rem; line-height: 1;">🗂️</span>
 								</button>
 							</li>
 
@@ -164,7 +171,7 @@
 									data-bs-toggle-second="tooltip"
 									data-bs-placement="bottom"
 									data-bs-title="About CkTikZ">
-									<span class="material-symbols-outlined d-flex align-items-center" style="font-size: 20px;">info</span>
+									<span class="d-flex align-items-center justify-content-center" style="font-size: 1.15rem; line-height: 1;">ℹ️</span>
 								</button>
 							</li>
 						</ul>
@@ -178,98 +185,114 @@
 				<div class="d-none m-0 p-0 bg-body-tertiary border border-secondary rounded d-flex flex-column" id="tikzEditorContainer" style="width: 300px; min-width: 200px; max-width: 600px; height: 100%;">
 					<div class="d-flex flex-column h-100 p-2">
 						<div class="d-flex flex-column align-items-start gap-2 mb-2">
-							<h5 class="m-0 unselectable">TikZ Editor</h5>
+							<h5 class="m-0 unselectable" style="font-size: 16px; font-weight: 700; font-family: var(--font-sans); letter-spacing: -0.2px; color: var(--text-main);">📝 TikZ Editor</h5>
 							<div class="d-flex gap-1">
 								<button type="button" class="btn btn-secondary btn-sm icon-button" id="copyTikzCodeButton" data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-title="Copy TikZ code">
-									<span class="material-symbols-outlined" style="font-size: 18px; width: 18px; height: 18px;">content_copy</span>
+									<span class="d-flex align-items-center justify-content-center" style="font-size: 1.05rem; line-height: 1;">📋</span>
 								</button>
 								<button type="button" class="btn btn-secondary btn-sm icon-button" id="saveTikzCodeButton" data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-title="Save TikZ code (.tikz)">
-									<span class="material-symbols-outlined" style="font-size: 18px; width: 18px; height: 18px;">download</span>
+									<span class="d-flex align-items-center justify-content-center" style="font-size: 1.05rem; line-height: 1;">💾</span>
 								</button>
-								<button type="button" class="btn btn-success btn-sm icon-button" id="saveServerCodeButton" data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-title="Save to Server (Cloud)">
-									<span class="material-symbols-outlined" style="font-size: 18px; width: 18px; height: 18px;">cloud_upload</span>
+								<button type="button" class="btn btn-secondary btn-sm icon-button" id="saveServerCodeButton" data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-title="Save to Server (Cloud)">
+									<span class="d-flex align-items-center justify-content-center" style="font-size: 1.05rem; line-height: 1;">📤</span>
 								</button>
 								<button type="button" class="btn btn-primary btn-sm icon-button" id="applyTikzButton">
 									<span class="material-symbols-outlined" style="font-size: 18px; width: 18px; height: 18px;">done</span>Apply
 								</button>
 							</div>
 						</div>
-						<div id="tikzEditorTextArea" class="flex-grow-1 form-control font-monospace overflow-y-auto" style="font-family: monospace; font-size: 14px; resize: none; white-space: pre; outline: none;" spellcheck="false" contenteditable="true"></div>
+						<div id="tikzEditorTextArea" class="flex-grow-1 form-control overflow-y-auto" style="font-size: 14px; resize: none; white-space: pre; outline: none;" spellcheck="false" contenteditable="true"></div>
 						<div id="tikzEditorError" class="alert alert-danger mt-2 small py-2 px-3" style="white-space: pre-wrap; display: none;"></div>
 					</div>
 				</div>
 				<!-- Resizer handler -->
 				<div id="tikzEditorResizer" class="d-none" style="width: 1px; cursor: col-resize; background-color: var(--border-color); user-select: none; align-self: stretch; z-index: 10;"></div>
-				<div class="col-12 col-md position-relative ps-md-0" id="canvasContainer">
-					<div
-						class="z-1 position-absolute border rounded bg-body d-flex flex-row justify-content-center gap-3 align-items-center p-2 shadow-sm"
-						id="controlsContainer" style="top: 15px; left: 15px; border-radius: 12px !important; border: 1px solid var(--border-color) !important; background-color: rgba(255, 255, 255, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);">
-						<div class="d-flex gap-1 align-items-center">
-							<a
-								id="addComponentButton"
-								class="toolbarButton material-symbols-outlined"
-								role="button"
-								data-bs-toggle="tooltip"
-								data-bs-placement="bottom"
-								data-bs-title="Open component drawer (Q)"
-								aria-controls="leftOffcanvas"
-								>add</a
-							>
+				<div class="col-12 col-md position-relative ps-md-0 d-flex flex-column" id="canvasContainer">
+					<!-- Tab Contents -->
+					<div class="flex-grow-1 position-relative w-100 h-100" id="canvasTabContent">
+						<!-- Visual Editor Tab -->
+						<div id="visualEditorTab" class="w-100 h-100 position-absolute top-0 start-0 active">
+							<div
+								class="z-1 position-absolute border rounded bg-body d-flex flex-row justify-content-center gap-2 align-items-center shadow-sm"
+								id="controlsContainer" style="top: 0px; left: 50%; transform: translateX(-50%); padding: 4px !important; border-radius: 6px !important; border: 1px solid var(--border-color) !important; background-color: rgba(255, 255, 255, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);">
+								<div class="d-flex gap-1 align-items-center">
+									<a
+										id="addComponentButton"
+										class="toolbarButton material-symbols-outlined"
+										role="button"
+										data-bs-toggle="tooltip"
+										data-bs-placement="bottom"
+										data-bs-title="Open component drawer (Q)"
+										aria-controls="leftOffcanvas"
+										>add</a
+									>
+								</div>
+								<div class="vr" style="height: 14px; align-self: center;"></div>
+								<div class="d-flex gap-1 align-items-center">
+									<a
+										id="modeDragPan"
+										class="toolbarButton material-symbols-outlined selected"
+										role="button"
+										data-bs-toggle="tooltip"
+										data-bs-placement="bottom"
+										data-bs-title="Pan or zoom the canvas (Esc)"
+										>drag_pan</a
+									>
+									<a
+										id="modeDrawLine"
+										class="toolbarButton material-symbols-outlined"
+										role="button"
+										data-bs-toggle="tooltip"
+										data-bs-placement="bottom"
+										data-bs-title="Draw wires (W)"
+										>draw</a
+									>
+									<a
+										id="modeEraser"
+										class="toolbarButton material-symbols-outlined"
+										role="button"
+										data-bs-toggle="tooltip"
+										data-bs-placement="bottom"
+										data-bs-title="Erase components and wires (Del, Backspace)"
+										>ink_eraser</a
+									>
+								</div>
+								<div class="vr" style="height: 14px; align-self: center;"></div>
+								<div class="d-flex gap-1 align-items-center">
+									<a
+										role="button"
+										class="toolbarButton material-symbols-outlined"
+										id="undoButton"
+										data-bs-toggle="tooltip"
+										data-bs-placement="bottom"
+										data-bs-title="Undo (Ctrl/⌘+Z)"
+										>undo</a
+									>
+									<a
+										role="button"
+										class="toolbarButton material-symbols-outlined"
+										id="redoButton"
+										data-bs-toggle="tooltip"
+										data-bs-placement="bottom"
+										data-bs-title="Redo (Ctrl/⌘+Y)"
+										>redo</a
+									>
+								</div>
+							</div>
+							<!-- The actual canvas -->
+							<include src="pages/canvas.svg"></include>
 						</div>
-						<div class="vr" style="height: 20px;"></div>
-						<div class="d-flex gap-1 align-items-center">
-							<a
-								id="modeDragPan"
-								class="toolbarButton material-symbols-outlined selected"
-								role="button"
-								data-bs-toggle="tooltip"
-								data-bs-placement="bottom"
-								data-bs-title="Pan or zoom the canvas (Esc)"
-								>drag_pan</a
-							>
-							<a
-								id="modeDrawLine"
-								class="toolbarButton material-symbols-outlined"
-								role="button"
-								data-bs-toggle="tooltip"
-								data-bs-placement="bottom"
-								data-bs-title="Draw wires (W)"
-								>draw</a
-							>
-							<a
-								id="modeEraser"
-								class="toolbarButton material-symbols-outlined"
-								role="button"
-								data-bs-toggle="tooltip"
-								data-bs-placement="bottom"
-								data-bs-title="Erase components and wires (Del, Backspace)"
-								>ink_eraser</a
-							>
-						</div>
-						<div class="vr" style="height: 20px;"></div>
-						<div class="d-flex gap-1 align-items-center">
-							<a
-								role="button"
-								class="toolbarButton material-symbols-outlined"
-								id="undoButton"
-								data-bs-toggle="tooltip"
-								data-bs-placement="bottom"
-								data-bs-title="Undo (Ctrl/⌘+Z)"
-								>undo</a
-							>
-							<a
-								role="button"
-								class="toolbarButton material-symbols-outlined"
-								id="redoButton"
-								data-bs-toggle="tooltip"
-								data-bs-placement="bottom"
-								data-bs-title="Redo (Ctrl/⌘+Y)"
-								>redo</a
-							>
+						<!-- Live LaTeX Render Tab -->
+						<div id="liveRenderTab" class="w-100 h-100 position-absolute top-0 start-0 d-none" style="background-color: var(--bg-panel);">
+							<div class="render-viewport">
+								<div class="render-loading" id="renderLoading" style="display: none;">
+									<div class="spinner"></div>
+									<span>Compiling with TeX WASM engine...</span>
+								</div>
+								<div id="tikzjaxContainer"></div>
+							</div>
 						</div>
 					</div>
-					<!-- The actual canvas -->
-					<include src="pages/canvas.svg"></include>
 					<div class="d-block position-absolute top-50 start-50" id="loadingSpinner">
 						<div class="spinner-border" role="status">
 							<span class="visually-hidden">Loading...</span>
@@ -283,19 +306,16 @@
 						<h2 class="align-self-center text-center mb-0 p-2 unselectable" id="propertiesTitle">
 							Properties
 						</h2>
-						<hr class="m-0" />
 						<div class="d-flex flex-column w-100 px-3" id="properties-content">
 							<div class="d-none pt-2" id="view-properties">
 								<div class="d-flex flex-column w-100 h-auto gap-3">
-									<div class="m-0 p-0 d-flex justify-content-between align-items-center">
+									<div class="m-0 p-0 d-flex gap-2 justify-content-between align-items-center">
 										<button
 											type="button"
 											class="btn btn-primary flex-grow-1"
 											id="resetViewButton">
 											Reset view
 										</button>
-									</div>
-									<div class="m-0 p-0 d-flex justify-content-between align-items-center">
 										<button
 											type="button"
 											class="btn btn-primary flex-grow-1"

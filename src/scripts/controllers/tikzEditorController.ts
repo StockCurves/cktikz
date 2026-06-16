@@ -7,7 +7,8 @@ import {
 	parseTikz,
 	Undo,
 	TemplateController,
-	SelectionController
+	SelectionController,
+	LiveRenderController
 } from "../internal"
 
 function getEditorText(editor: HTMLDivElement): string {
@@ -118,6 +119,11 @@ export class TikzEditorController {
 			e.stopPropagation()
 		})
 
+		// Trigger debounced render on user typing in editor
+		this.editorTextArea.addEventListener("input", () => {
+			LiveRenderController.instance.triggerDebouncedRender()
+		})
+
 		// Apply button click
 		this.applyButton.addEventListener("click", () => {
 			this.applyEditorText()
@@ -188,6 +194,7 @@ export class TikzEditorController {
 
 	public setCode(code: string) {
 		setEditorText(this.editorTextArea, code)
+		LiveRenderController.instance.triggerDebouncedRender()
 	}
 
 	public getCode(): string {

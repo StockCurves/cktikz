@@ -10,6 +10,7 @@ export * from "./controllers/copyController"
 export * from "./controllers/propertiesController"
 export * from "./controllers/environmentVariableController"
 export * from "./controllers/tikzEditorController"
+export * from "./controllers/liveRenderController"
 export * from "./controllers/contextMenu"
 export * from "./controllers/templateController"
 // properties

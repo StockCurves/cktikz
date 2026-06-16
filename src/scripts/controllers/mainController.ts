@@ -42,6 +42,7 @@ import {
 	SubcircuitSaveObject,
 	SymbolEditorController,
 	TemplateController,
+	LiveRenderController,
 } from "../internal"
 
 type TabState = {
@@ -119,6 +120,7 @@ export class MainController {
 	broadcastChannel: BroadcastChannel
 
 	public designName: TextProperty
+	public pendingLoadData: SaveFileFormat | null = null
 
 	private db: IDBDatabase
 
@@ -211,6 +213,7 @@ export class MainController {
 			this.initAddComponentOffcanvas()
 			this.initShortcuts()
 			TikzEditorController.instance.init()
+			LiveRenderController.instance.init()
 
 			// Prevent "normal" browser menu
 			document
@@ -269,6 +272,10 @@ export class MainController {
 					TemplateController.instance.loadRemoteFile("template", "rc-lowpass.tex")
 				}
 			}).catch(err => console.error("Error loading templates:", err))
+
+			if (MainController.instance.pendingLoadData) {
+				SaveController.instance.loadFromJSON(MainController.instance.pendingLoadData)
+			}
 
 			this.isInitDone = true
 		})
@@ -409,7 +416,7 @@ export class MainController {
 					MainController.instance.tabID = requestedTab.id
 					MainController.instance.designName.updateValue(requestedTab.designName ?? "", true, true)
 					CanvasController.instance.setSettings(requestedTab.settings)
-					SaveController.instance.loadFromJSON(requestedTab.data)
+					MainController.instance.pendingLoadData = requestedTab.data
 					tabsObjectStore.put(requestedTab).onsuccess = (event) => {
 						MainController.instance.sendBroadcastMessage("update")
 					}

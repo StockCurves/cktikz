@@ -215,6 +215,12 @@ export class CanvasController {
 	public resetView() {
 		// shift whole canvas down such that the origin is in the bottom left corner
 		let box = this.canvas.viewbox()
+		if (!Number.isFinite(box.w) || box.w <= 0 || !Number.isFinite(box.h) || box.h <= 0) {
+			box.w = this.canvasBounds && this.canvasBounds.width > 0 ? this.canvasBounds.width : 800
+			box.h = this.canvasBounds && this.canvasBounds.height > 0 ? this.canvasBounds.height : 600
+			box.width = box.w
+			box.height = box.h
+		}
 		box.x = 0
 		box.y = 0
 
@@ -473,25 +479,51 @@ export class CanvasController {
 	 */
 	private onResizeCanvas() {
 		const newCanvasBounds = this.canvas.node.getBoundingClientRect()
+		if (newCanvasBounds.width === 0 || newCanvasBounds.height === 0) {
+			return
+		}
 		/** @type {SVG.Box} */
 		const oldViewbox: SVG.Box = this.canvas.viewbox() || new SVG.Box()
-		const zoom =
-			!this.canvasBounds ? 1 : (
-				Math.max(
-					0.25,
-					Math.min(
-						10,
-						this.canvasBounds.width / oldViewbox.width,
-						this.canvasBounds.height / oldViewbox.height
-					)
+
+		// If the old viewBox is invalid, reset to a safe state to recover
+		if (!Number.isFinite(oldViewbox.x) || !Number.isFinite(oldViewbox.y) || 
+			!Number.isFinite(oldViewbox.width) || !Number.isFinite(oldViewbox.height) ||
+			oldViewbox.width <= 0 || oldViewbox.height <= 0) {
+			oldViewbox.x = 0
+			oldViewbox.y = 0
+			oldViewbox.width = newCanvasBounds.width > 0 ? newCanvasBounds.width : 800
+			oldViewbox.height = newCanvasBounds.height > 0 ? newCanvasBounds.height : 600
+			oldViewbox.w = oldViewbox.width
+			oldViewbox.h = oldViewbox.height
+		}
+
+		let zoom = 1
+		if (this.canvasBounds && oldViewbox.width > 0 && oldViewbox.height > 0) {
+			const calculatedZoom = Math.max(
+				0.25,
+				Math.min(
+					10,
+					this.canvasBounds.width / oldViewbox.width,
+					this.canvasBounds.height / oldViewbox.height
 				)
 			)
+			if (Number.isFinite(calculatedZoom) && calculatedZoom > 0) {
+				zoom = calculatedZoom
+			}
+		}
+
+		const newWidth = newCanvasBounds.width / zoom
+		const newHeight = newCanvasBounds.height / zoom
+
+		if (!Number.isFinite(newWidth) || !Number.isFinite(newHeight) || newWidth <= 0 || newHeight <= 0) {
+			return
+		}
 
 		const newViewbox = new SVG.Box(
 			oldViewbox.x,
 			oldViewbox.y,
-			newCanvasBounds.width / zoom,
-			newCanvasBounds.height / zoom
+			newWidth,
+			newHeight
 		)
 		this.canvas.viewbox(newViewbox)
 

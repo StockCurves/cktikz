@@ -634,6 +634,7 @@ export class RectangleComponent extends ShapeComponent {
 		if (this.textAreaProperty.value || this.createAsText) {
 			let textData: Text = {
 				text: this.textAreaProperty.value || (this.createAsText ? "text component" : ""),
+				isMath: this.isMath || undefined,
 			}
 			textData.align = this.textAreaAlign.value.numberID ?? TextAlign.LEFT
 			textData.justify = this.textAreaJustify.value.numberID ?? TextJustify.START
