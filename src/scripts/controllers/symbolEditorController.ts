@@ -210,7 +210,7 @@ export class SymbolEditorController {
 			e.preventDefault()
 		})
 
-		this.svg.on("mousedown", (e: MouseEvent) => {
+		this.svg.on("mousedown", async (e: MouseEvent) => {
 			if (e.button === 2) {
 				// Right click pan
 				e.preventDefault()
@@ -244,7 +244,10 @@ export class SymbolEditorController {
 						.stroke({ color: defaultStroke, width: 1 })
 				} else if (this.currentTool === "pin") {
 					this.isDrawing = false
-					const pinName = prompt("請輸入新連接點的名稱 (例如：g, s, d, in, out)：")
+					const pinName = await MainController.instance.openPrompt(
+						"New Connection Point",
+						"Please enter a name for the new connection point (e.g., g, s, d, in, out):"
+					)
 					if (pinName) {
 						this.addPinElement(snappedPt.x, snappedPt.y, pinName.trim(), false)
 					}
@@ -414,7 +417,7 @@ export class SymbolEditorController {
 		})
 	}
 
-	public open(symbolId: string) {
+	public async open(symbolId: string) {
 		try {
 			this.initDOM()
 
@@ -452,6 +455,7 @@ export class SymbolEditorController {
 			// Adopt symbol children
 			const symbolNode = variant.symbol.node
 			const flatElements: SVG.Element[] = []
+			let rawLeafIndex = 0
 
 			const collectFlatElements = (el: SVG.Element, inheritedStyles: { stroke?: string; strokeWidth?: string; fill?: string; className?: string }) => {
 				if (el.node.tagName.toLowerCase() === "g") {
@@ -502,15 +506,20 @@ export class SymbolEditorController {
 								for (const sub of subpaths) {
 									const clonedEl = SVG.adopt(el.node.cloneNode(true) as HTMLElement) as SVG.Path
 									clonedEl.plot(new SVG.PathArray(sub).toString())
+									clonedEl.attr("data-orig-index", rawLeafIndex)
 									flatElements.push(clonedEl)
 								}
+								rawLeafIndex++
 							} else {
+								el.attr("data-orig-index", rawLeafIndex++)
 								flatElements.push(el)
 							}
 						} else {
+							el.attr("data-orig-index", rawLeafIndex++)
 							flatElements.push(el)
 						}
 					} else {
+						el.attr("data-orig-index", rawLeafIndex++)
 						flatElements.push(el)
 					}
 				}
@@ -547,7 +556,7 @@ export class SymbolEditorController {
 			this.modal.show()
 		} catch (err) {
 			console.error("Error opening symbol editor modal:", err)
-			alert("開啟編輯器出錯，錯誤原因：\n" + (err.stack || err))
+			await MainController.instance.openAlert("Error Opening Editor", err.stack || String(err))
 		}
 	}
 
@@ -716,7 +725,7 @@ export class SymbolEditorController {
 
 		if (shapeStyleSection) shapeStyleSection.classList.add("d-none")
 		if (pinPropertySection) pinPropertySection.classList.add("d-none")
-		if (infoContent) infoContent.innerHTML = `請在左側選取工具。<br/>• 點擊形狀/連接點進行修改。`
+		if (infoContent) infoContent.innerHTML = `Select a tool on the left.<br/>• Click a shape or pin to edit it.`
 	}
 
 	private updateOverlay() {
@@ -921,6 +930,8 @@ export class SymbolEditorController {
 				const origVarSymNode = origVarSymId ? document.getElementById(origVarSymId) : null
 
 				const decoratorElements: string[] = []
+				const deletedBaseIndices = new Set<number>()
+
 				if (origBaseSymNode && origVarSymNode) {
 					const getLeafElements = (symNode: Element) => {
 						const els: string[] = []
@@ -936,17 +947,37 @@ export class SymbolEditorController {
 						return els
 					}
 
-					const baseLeafs = new Set(getLeafElements(origBaseSymNode))
+					const baseLeafs = getLeafElements(origBaseSymNode)
 					const varLeafs = getLeafElements(origVarSymNode)
+					const varLeafsSet = new Set(varLeafs)
+
+					// Subtractive diff: identify original leaves removed by this option
+					baseLeafs.forEach((leaf, idx) => {
+						if (!varLeafsSet.has(leaf)) {
+							deletedBaseIndices.add(idx)
+						}
+					})
 					
+					// Additive diff: identify new leaves added by this option
+					const baseLeafsSet = new Set(baseLeafs)
 					varLeafs.forEach(leaf => {
-						if (!baseLeafs.has(leaf)) {
+						if (!baseLeafsSet.has(leaf)) {
 							decoratorElements.push(leaf)
 						}
 					})
 				}
 
-				newSymbolXml = `<symbol id="${newSymbolId}">\n<g fill="none" stroke="${defaultStroke}" stroke-miterlimit="10" stroke-width=".4">\n${elementsXmlArr.join("\n")}\n${decoratorElements.join("\n")}\n</g>\n${clickRectHtml}\n</symbol>`
+				// Filter edited elements array to remove deleted base leaves
+				const filteredElementsXml = elementsXmlArr.filter(xmlStr => {
+					const match = xmlStr.match(/data-orig-index="(\d+)"/);
+					if (match) {
+						const idx = parseInt(match[1], 10);
+						return !deletedBaseIndices.has(idx);
+					}
+					return true;
+				})
+
+				newSymbolXml = `<symbol id="${newSymbolId}">\n<g fill="none" stroke="${defaultStroke}" stroke-miterlimit="10" stroke-width=".4">\n${filteredElementsXml.join("\n")}\n${decoratorElements.join("\n")}\n</g>\n${clickRectHtml}\n</symbol>`
 			}
 
 			newSymbolsMap[newSymbolId] = newSymbolXml

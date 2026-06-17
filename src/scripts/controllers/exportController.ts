@@ -96,7 +96,7 @@ export class ExportController {
 	}
 
 	exportJSON(text: string) {
-		this.heading.textContent = "Save JSON"
+		this.heading.textContent = "Export JSON"
 
 		// create extension select list
 		const extensions = [".json", ".txt"]

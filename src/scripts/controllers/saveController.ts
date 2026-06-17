@@ -110,7 +110,8 @@ export class SaveController {
 					let inputstring = evt.target.result instanceof ArrayBuffer ? "" : evt.target.result
 					const input = JSON.parse(inputstring)
 					if (!("version" in input)) {
-						alert(
+						MainController.instance.openAlert(
+							"Old Save Format",
 							"You are using an old version of the json save file format. Please override all files exported from Circuitikz Designer version 0.6 and older by reexporting your circuit to json to update them to the newest json save file format version (currently: " +
 								currentSaveVersion +
 								" for Circuitikz Designer version " +

@@ -11,8 +11,8 @@
 			gtag("js", new Date())
 			gtag("config", "G-SN05E6G25Q", { cookie_flags: "max-age=7200;secure;samesite=strict" })
 		</script>
-		<title>CkTikZ</title>
-		<meta name="title" property="og:title" content="CkTikZ" />
+		<title>VisioCirkit</title>
+		<meta name="title" property="og:title" content="VisioCirkit" />
 		<meta property="og:type" content="website" />
 		<meta property="og:url" content="https://circuit2tikz.tf.fau.de/designer/" />
 		<meta name="image" property="og:image" content="../icons/page_preview.png" />
@@ -51,7 +51,7 @@
 			<nav class="container-xxl flex-nowrap">
 				<a class="navbar-brand unselectable d-flex align-items-center gap-2" href=".">
 					<img src="../icons/favicon.svg" style="width: 1.8em; height: 1.8em" class="d-inline-block" />
-					<span class="fw-bold" style="font-family: var(--font-sans); letter-spacing: -0.5px; color: var(--text-main);">CkTikZ</span>
+					<span class="fw-bold" style="font-family: var(--font-sans); letter-spacing: -0.5px; color: var(--text-main);">VisioCirkit</span>
 				</a>
 				<div class="d-flex gap-2 align-items-center ms-md-auto">
 					<div class="vr me-2 d-block d-md-none"></div>
@@ -68,7 +68,7 @@
 				<div class="offcanvas-md offcanvas-end" id="ctNavbar">
 					<div class="offcanvas-header px-4 pb-0">
 						<h5 class="offcanvas-title fs-3">
-							<span class="">CkTikZ</span>
+							<span class="">VisioCirkit</span>
 						</h5>
 						<button
 							type="button"
@@ -79,6 +79,17 @@
 					</div>
 					<div class="offcanvas-body">
 						<ul class="navbar-nav gap-2 align-items-center">
+							<li class="nav-item col-12 col-md-auto">
+								<button
+									type="button"
+									class="btn btn-outline"
+									id="exportCircuiTikZButton"
+									data-bs-toggle="tooltip"
+									data-bs-placement="bottom"
+									data-bs-title="Toggle TikZ Editor (Ctrl+B)">
+									<span class="d-flex align-items-center justify-content-center" style="font-size: 1.15rem; line-height: 1;">📝</span>
+								</button>
+							</li>
 							<li class="nav-item col-12 col-md-auto">
 								<button class="nav-link fw-semibold active" id="btn-visual-editor" type="button">🎨 Visual Editor</button>
 							</li>
@@ -101,31 +112,6 @@
 										<!-- Dynamically populated -->
 									</ul>
 								</div>
-							</li>
-							<li class="nav-item col-12 col-md-auto">
-								<button
-									type="button"
-									class="btn btn-outline"
-									id="helpButton"
-									data-bs-toggle="modal"
-									data-bs-target="#helpModal"
-									data-bs-toggle-second="tooltip"
-									data-bs-trigger="hover"
-									data-bs-placement="bottom"
-									data-bs-title="Help menu">
-									<span class="d-flex align-items-center justify-content-center" style="font-size: 1.15rem; line-height: 1;">❓</span>
-								</button>
-							</li>
-							<li class="nav-item col-12 col-md-auto">
-								<button
-									type="button"
-									class="btn btn-outline"
-									id="exportCircuiTikZButton"
-									data-bs-toggle="tooltip"
-									data-bs-placement="bottom"
-									data-bs-title="Toggle TikZ Editor (Ctrl+B)">
-									<span class="d-flex align-items-center justify-content-center" style="font-size: 1.15rem; line-height: 1;">📝</span>
-								</button>
 							</li>
 							<li class="nav-item col-12 col-md-auto">
 								<button
@@ -170,8 +156,22 @@
 									data-bs-target="#aboutModal"
 									data-bs-toggle-second="tooltip"
 									data-bs-placement="bottom"
-									data-bs-title="About CkTikZ">
+									data-bs-title="About VisioCirkit">
 									<span class="d-flex align-items-center justify-content-center" style="font-size: 1.15rem; line-height: 1;">ℹ️</span>
+								</button>
+							</li>
+							<li class="nav-item col-12 col-md-auto">
+								<button
+									type="button"
+									class="btn btn-outline"
+									id="helpButton"
+									data-bs-toggle="modal"
+									data-bs-target="#helpModal"
+									data-bs-toggle-second="tooltip"
+									data-bs-trigger="hover"
+									data-bs-placement="bottom"
+									data-bs-title="Help menu">
+									<span class="d-flex align-items-center justify-content-center" style="font-size: 1.15rem; line-height: 1;">❓</span>
 								</button>
 							</li>
 						</ul>
@@ -569,13 +569,13 @@
 				<div class="modal-content">
 					<div class="modal-header">
 						<h1 class="modal-title fs-3" id="aboutModalLabel">
-							About CkTikZ
+							About VisioCirkit
 						</h1>
 						<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
 					</div>
 					<div class="modal-body">
 						<p>
-							CkTikZ is forked from the original <a href="https://github.com/Circuit2TikZ/CircuiTikZ-Designer" target="_blank">CircuiTikZ-Designer</a> and operates with identical behavior. The original project was part of the Circuit2Ti<i>k</i>Z-Project started as a research project at the Institute of Electronics Engineering at the Friedrich-Alexander-Universit&auml;t Erlangen-N&uuml;rnberg.
+							VisioCirkit is forked from the original <a href="https://github.com/Circuit2TikZ/CircuiTikZ-Designer" target="_blank">CircuiTikZ-Designer</a> and operates with identical behavior. The original project was part of the Circuit2Ti<i>k</i>Z-Project started as a research project at the Institute of Electronics Engineering at the Friedrich-Alexander-Universit&auml;t Erlangen-N&uuml;rnberg.
 						</p>
 						<p>
 							If you find bugs or have suggestions, please feel free to contact us, preferably on
@@ -591,7 +591,7 @@
 								<svg class="bi" width="40" height="40" fill="currentColor">
 									<use xlink:href="../icons/bootstrap-icons.svg#github" />
 								</svg>
-								<span>CkTikZ GitHub</span>
+								<span>VisioCirkit GitHub</span>
 							</a>
 						</div>
 					</div>
@@ -615,10 +615,10 @@
 					</div>
 					<div class="modal-body">
 						<p>
-							CkTikZ (forked from CircuiTikZ-Designer with identical behavior) can manage a different canvas for each tab to allow multiple
+							VisioCirkit (forked from CircuiTikZ-Designer with identical behavior) can manage a different canvas for each tab to allow multiple
 							drawings at the same time.
 						</p>
-						<p>Total storage used by CkTikZ: <span id="storageUsed"></span></p>
+						<p>Total storage used by VisioCirkit: <span id="storageUsed"></span></p>
 						<table class="table table-striped align-middle">
 							<thead class="align-middle">
 								<tr>
@@ -686,6 +686,11 @@
 									<td class="table-active">Move <b>canvas</b></td>
 									<td>Hold right click and drag</td>
 									<td>Move with two touches</td>
+								</tr>
+								<tr>
+									<td class="table-active">Reset <b>canvas view</b></td>
+									<td>Double click on the canvas</td>
+									<td>-</td>
 								</tr>
 								<tr>
 									<td class="table-active">Zoom <b>canvas</b></td>
@@ -759,7 +764,7 @@
 								</tr>
 								<tr>
 									<td>Keyboard shortcuts (see below)</td>
-									<td></td>
+									<td>Double click a custom symbol to edit it</td>
 								</tr>
 								<tr>
 									<td class="table-active">Move <b>component</b></td>
@@ -822,16 +827,6 @@
 							<tbody class="table-group-divider">
 								<tr>
 									<td>IO</td>
-									<td>Ctrl/⌘ + S</td>
-									<td>Save to JSON</td>
-								</tr>
-								<tr>
-									<td></td>
-									<td>Ctrl/⌘ + O</td>
-									<td>Load from JSON</td>
-								</tr>
-								<tr>
-									<td></td>
 									<td>Ctrl/⌘ + E</td>
 									<td>Export CircuiTi<i>k</i>Z code</td>
 								</tr>
@@ -951,15 +946,75 @@
 			<div class="modal-dialog">
 				<div class="modal-content">
 					<div class="modal-header">
-						<h1 class="modal-title fs-5" id="renameModalLabel">更名</h1>
+						<h1 class="modal-title fs-5" id="renameModalLabel">Rename</h1>
 						<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
 					</div>
 					<div class="modal-body">
-						<input type="text" class="form-control" id="renameModalInput" placeholder="請輸入新名稱" />
+						<input type="text" class="form-control" id="renameModalInput" placeholder="Enter new name" />
 					</div>
 					<div class="modal-footer">
-						<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-						<button type="button" class="btn btn-primary" id="renameModalConfirm">確認</button>
+						<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+						<button type="button" class="btn btn-primary" id="renameModalConfirm">Confirm</button>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- Modal (custom prompt dialog) -->
+		<div class="modal fade" id="customPromptModal" tabindex="-1"
+		     aria-labelledby="customPromptModalLabel" aria-hidden="true" role="dialog">
+			<div class="modal-dialog">
+				<div class="modal-content">
+					<div class="modal-header">
+						<h1 class="modal-title fs-5" id="customPromptModalLabel">Input Required</h1>
+						<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+					</div>
+					<div class="modal-body">
+						<p id="customPromptModalMessage" class="mb-2"></p>
+						<input type="text" class="form-control" id="customPromptModalInput" placeholder="Enter value" />
+					</div>
+					<div class="modal-footer">
+						<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+						<button type="button" class="btn btn-primary" id="customPromptModalConfirm">OK</button>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- Modal (custom confirm dialog) -->
+		<div class="modal fade" id="customConfirmModal" tabindex="-1"
+		     aria-labelledby="customConfirmModalLabel" aria-hidden="true" role="dialog">
+			<div class="modal-dialog">
+				<div class="modal-content">
+					<div class="modal-header">
+						<h1 class="modal-title fs-5" id="customConfirmModalLabel">Confirm Action</h1>
+						<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+					</div>
+					<div class="modal-body">
+						<p id="customConfirmModalMessage" class="mb-0"></p>
+					</div>
+					<div class="modal-footer">
+						<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+						<button type="button" class="btn btn-primary" id="customConfirmModalConfirm">Confirm</button>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- Modal (system message dialog) -->
+		<div class="modal fade" id="systemMessageModal" tabindex="-1"
+		     aria-labelledby="systemMessageModalLabel" aria-hidden="true" role="dialog">
+			<div class="modal-dialog">
+				<div class="modal-content">
+					<div class="modal-header">
+						<h1 class="modal-title fs-5" id="systemMessageModalLabel">Message</h1>
+						<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+					</div>
+					<div class="modal-body">
+						<p id="systemMessageModalMessage" class="mb-0" style="white-space: pre-wrap;"></p>
+					</div>
+					<div class="modal-footer">
+						<button type="button" class="btn btn-primary" id="systemMessageModalConfirm">OK</button>
 					</div>
 				</div>
 			</div>
@@ -971,28 +1026,28 @@
 			<div class="modal-dialog">
 				<div class="modal-content">
 					<div class="modal-header">
-						<h1 class="modal-title fs-5" id="saveSymbolModalLabel">儲存為自訂元件 (Save Selection as Symbol)</h1>
+						<h1 class="modal-title fs-5" id="saveSymbolModalLabel">Save Selection as Symbol</h1>
 						<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
 					</div>
 					<div class="modal-body d-flex flex-column gap-3">
 						<div>
-							<label for="saveSymbolNameInput" class="form-label">元件名稱 (Symbol Name)</label>
-							<input type="text" class="form-control" id="saveSymbolNameInput" placeholder="請輸入名稱" />
+							<label for="saveSymbolNameInput" class="form-label">Symbol Name</label>
+							<input type="text" class="form-control" id="saveSymbolNameInput" placeholder="Enter a name" />
 						</div>
 						<div>
-							<label for="saveSymbolCategorySelect" class="form-label">選擇分類 (Category)</label>
+							<label for="saveSymbolCategorySelect" class="form-label">Category</label>
 							<select class="form-select" id="saveSymbolCategorySelect">
 								<!-- categories dynamically loaded -->
 							</select>
 						</div>
 						<div class="d-none" id="saveSymbolNewCategoryContainer">
-							<label for="saveSymbolNewCategoryInput" class="form-label">新分類名稱 (New Category Name)</label>
-							<input type="text" class="form-control" id="saveSymbolNewCategoryInput" placeholder="請輸入新分類名稱" />
+							<label for="saveSymbolNewCategoryInput" class="form-label">New Category Name</label>
+							<input type="text" class="form-control" id="saveSymbolNewCategoryInput" placeholder="Enter a new category name" />
 						</div>
 					</div>
 					<div class="modal-footer">
-						<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-						<button type="button" class="btn btn-primary" id="saveSymbolModalConfirm">儲存</button>
+						<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+						<button type="button" class="btn btn-primary" id="saveSymbolModalConfirm">Save</button>
 					</div>
 				</div>
 			</div>
@@ -1029,23 +1084,23 @@
 							</svg>
 							<!-- Left toolbar inside editor canvas -->
 							<div class="position-absolute top-0 start-0 m-3 d-flex flex-column gap-2 p-2 bg-body-secondary border rounded shadow" style="z-index: 10;">
-								<button type="button" class="btn btn-outline-primary btn-sm p-2 d-flex align-items-center justify-content-center active" id="editorToolSelect" title="選取與拖拉元件">
+								<button type="button" class="btn btn-outline-primary btn-sm p-2 d-flex align-items-center justify-content-center active" id="editorToolSelect" title="Select and drag components">
 									<span class="material-symbols-outlined">near_me</span>
 								</button>
-								<button type="button" class="btn btn-outline-secondary btn-sm p-2 d-flex align-items-center justify-content-center" id="editorToolLine" title="新增直線">
+								<button type="button" class="btn btn-outline-secondary btn-sm p-2 d-flex align-items-center justify-content-center" id="editorToolLine" title="Add a line">
 									<span class="material-symbols-outlined">edit</span>
 								</button>
-								<button type="button" class="btn btn-outline-secondary btn-sm p-2 d-flex align-items-center justify-content-center" id="editorToolCircle" title="新增圓形">
+								<button type="button" class="btn btn-outline-secondary btn-sm p-2 d-flex align-items-center justify-content-center" id="editorToolCircle" title="Add a circle">
 									<span class="material-symbols-outlined">circle</span>
 								</button>
-								<button type="button" class="btn btn-outline-secondary btn-sm p-2 d-flex align-items-center justify-content-center" id="editorToolRect" title="新增矩形">
+								<button type="button" class="btn btn-outline-secondary btn-sm p-2 d-flex align-items-center justify-content-center" id="editorToolRect" title="Add a rectangle">
 									<span class="material-symbols-outlined">rectangle</span>
 								</button>
-								<button type="button" class="btn btn-outline-secondary btn-sm p-2 d-flex align-items-center justify-content-center" id="editorToolPin" title="新增連接點 (Pin)">
+								<button type="button" class="btn btn-outline-secondary btn-sm p-2 d-flex align-items-center justify-content-center" id="editorToolPin" title="Add a connection point (Pin)">
 									<span class="material-symbols-outlined">push_pin</span>
 								</button>
 								<hr class="my-1" />
-								<button type="button" class="btn btn-outline-danger btn-sm p-2 d-flex align-items-center justify-content-center" id="editorDeleteShape" title="刪除選取形狀" disabled>
+								<button type="button" class="btn btn-outline-danger btn-sm p-2 d-flex align-items-center justify-content-center" id="editorDeleteShape" title="Delete selected shape" disabled>
 									<span class="material-symbols-outlined">delete</span>
 								</button>
 							</div>
@@ -1053,14 +1108,14 @@
 						<!-- Right properties side panel -->
 						<div class="bg-body-tertiary border-start d-flex flex-column shadow-sm" style="width: 320px; min-width: 320px; height: 100%;">
 							<div class="p-3 border-bottom bg-body-secondary">
-								<h5 class="mb-0">元件屬性與控制</h5>
+								<h5 class="mb-0">Component Properties & Controls</h5>
 							</div>
 							<div class="p-3 flex-grow-1 overflow-y-auto d-flex flex-column gap-3" id="symbolEditorProperties">
 								<!-- Shape styles -->
 								<div id="shapeStyleSection" class="d-none">
-									<h6 class="border-bottom pb-1">形狀樣式</h6>
+									<h6 class="border-bottom pb-1">Shape Style</h6>
 									<div class="mb-3">
-										<label class="form-label small mb-1 fw-bold">線條寬度 (Stroke Width)</label>
+										<label class="form-label small mb-1 fw-bold">Stroke Width</label>
 										<input type="range" class="form-range" min="0.1" max="5" step="0.1" id="editorStrokeWidth" />
 										<div class="d-flex justify-content-between small text-muted">
 											<span>0.1</span>
@@ -1069,16 +1124,16 @@
 										</div>
 									</div>
 									<div class="mb-3">
-										<label class="form-label small mb-1 fw-bold">線條顏色 (Stroke Color)</label>
+										<label class="form-label small mb-1 fw-bold">Stroke Color</label>
 										<input type="color" class="form-control form-control-color w-100" id="editorStrokeColor" value="#000000" />
 									</div>
 									<div class="mb-3">
-										<label class="form-label small mb-1 fw-bold">填滿樣式 (Fill)</label>
+										<label class="form-label small mb-1 fw-bold">Fill</label>
 										<div class="d-flex gap-2 align-items-center mb-1">
 											<input type="color" class="form-control form-control-color" id="editorFillColor" value="#ffffff" disabled />
 											<div class="form-check">
 												<input class="form-check-input" type="checkbox" id="editorFillNone" checked />
-												<label class="form-check-label small" for="editorFillNone">無填滿 (None)</label>
+												<label class="form-check-label small" for="editorFillNone">None</label>
 											</div>
 										</div>
 									</div>
@@ -1086,13 +1141,13 @@
 								
 								<!-- Pin properties -->
 								<div id="pinPropertySection" class="d-none">
-									<h6 class="border-bottom pb-1">連接點 (Pin) 屬性</h6>
+									<h6 class="border-bottom pb-1">Pin Properties</h6>
 									<div class="mb-3">
-										<label for="editorPinName" class="form-label small mb-1 fw-bold">連接點名稱 (Pin Name)</label>
+										<label for="editorPinName" class="form-label small mb-1 fw-bold">Pin Name</label>
 										<input type="text" class="form-control form-control-sm" id="editorPinName" />
 									</div>
 									<div class="mb-3">
-										<label class="form-label small mb-1 fw-bold">連線座標 (Coordinates)</label>
+										<label class="form-label small mb-1 fw-bold">Coordinates</label>
 										<div class="row g-2">
 											<div class="col-6">
 												<div class="input-group input-group-sm">
@@ -1110,24 +1165,24 @@
 									</div>
 									<div class="mb-3 form-check">
 										<input type="checkbox" class="form-check-input" id="editorPinIsDefault" />
-										<label class="form-check-label small" for="editorPinIsDefault">預設對齊點 (Default)</label>
+										<label class="form-check-label small" for="editorPinIsDefault">Default alignment point</label>
 									</div>
 								</div>
 								
 								<!-- Selected Element Info -->
 								<div class="pt-2" id="elementInfoSection">
-									<h6 class="border-bottom pb-1">編輯狀態</h6>
+									<h6 class="border-bottom pb-1">Editing Tips</h6>
 									<div id="elementInfoContent" class="small text-muted bg-dark-subtle p-2 rounded">
-										請在左側選取工具。
-										<br/>• 點擊形狀/連接點進行修改。
-										<br/>• 拖拉可以搬移位置。
-										<br/>• 鍵盤 Delete 可刪除所選。
+										Select a tool on the left.
+										<br/>• Click a shape or pin to edit it.
+										<br/>• Drag to move it.
+										<br/>• Press Delete to remove the selection.
 									</div>
 								</div>
 							</div>
 							<div class="p-3 border-top bg-body-secondary d-flex gap-2 justify-content-end">
-								<button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="symbolEditorCancelBtn">取消</button>
-								<button type="button" class="btn btn-primary" id="symbolEditorSaveBtn">儲存符號</button>
+								<button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="symbolEditorCancelBtn">Cancel</button>
+								<button type="button" class="btn btn-primary" id="symbolEditorSaveBtn">Save Symbol</button>
 							</div>
 						</div>
 					</div>
@@ -1136,7 +1191,7 @@
 		</div>
 
 		<!-- Context Menu for Work items -->
-		<div id="workContextMenu" class="dropdown-menu shadow position-absolute" style="display: none; z-index: 1080;">
+		<div id="workContextMenu" class="dropdown-menu context-menu shadow position-absolute" style="display: none; z-index: 1080;">
 			<button class="dropdown-item text-danger d-flex align-items-center gap-2" id="deleteWorkButton">
 				<span class="material-symbols-outlined fs-6">delete</span>
 				Delete

@@ -163,7 +163,7 @@ export class MainController {
 		const fileExportName = document.getElementById("exportModalFileBasename") as HTMLInputElement
 		this.designName = new TextProperty("Design Name", "")
 		this.designName.addChangeListener(() => {
-			document.title = this.designName.value + (this.designName.value ? " - " : "") + "CkTikZ"
+			document.title = this.designName.value + (this.designName.value ? " - " : "") + "VisioCirkit"
 			fileExportName.placeholder =
 				MainController.instance.designName.value.replace(/[^a-z0-9]/gi, "_") || "Circuit"
 
@@ -835,6 +835,14 @@ export class MainController {
 			this.switchMode(Modes.DRAG_PAN)
 			return false
 		})
+		hotkeys("f", () => {
+			if (LiveRenderController.instance.activeTab === "render") {
+				LiveRenderController.instance.fitView()
+			} else {
+				CanvasController.instance.fitView()
+			}
+			return false
+		})
 		hotkeys("w", () => {
 			this.switchMode(Modes.DRAG_PAN)
 			ComponentPlacer.instance.placeComponent(new WireComponent())
@@ -1285,8 +1293,8 @@ export class MainController {
 		const leftOffcanvasOC = new Offcanvas(leftOffcanvas)
 		document.getElementById("componentFilterInput").addEventListener("input", this.filterComponents)
 		document.getElementById("filterRegexButton").addEventListener("click", this.filterComponents)
-		document.getElementById("addCategoryButton").addEventListener("click", () => {
-			const name = prompt("請輸入自訂分類名稱：")
+		document.getElementById("addCategoryButton").addEventListener("click", async () => {
+			const name = await this.openPrompt("New Category", "Please enter a custom category name:")
 			if (name) {
 				this.addCustomCategory(name)
 			}
@@ -1400,11 +1408,14 @@ export class MainController {
 				addButton.addEventListener("mouseup", listener)
 				addButton.addEventListener("touchstart", listener, { passive: false })
 
-				addButton.addEventListener("contextmenu", (ev) => {
+				addButton.addEventListener("contextmenu", async (ev) => {
 					ev.preventDefault()
 					ev.stopPropagation()
-					if (this.customCategories.length === 0) {
-						const name = prompt("您目前沒有自訂分類，請先輸入新分類名稱來建立它：")
+					if (!symbol.isCustomSymbol && this.customCategories.length === 0) {
+						const name = await this.openPrompt(
+							"Create Category",
+							"You don't have any custom categories. Please enter a name to create one:"
+						)
 						if (name) {
 							this.addCustomCategory(name).then(() => {
 								setTimeout(() => {
@@ -1414,18 +1425,49 @@ export class MainController {
 						}
 						return
 					}
-					const menuEntries = this.customCategories.map(c => ({
-						result: "add:" + c.name,
-						text: `Add to "${c.name}"`
-					})).concat([
-						{ result: "new", text: "Add to new category..." },
-						{ result: "duplicate", text: "Duplicate symbol and customize..." }
-					])
+
+					let menuEntries: { result: string; text: string; iconText?: string }[] = []
+					if (symbol.isCustomSymbol) {
+						menuEntries.push(
+							{ result: "edit", iconText: "edit", text: "Edit Symbol..." },
+							{ result: "rename", iconText: "drive_file_rename_outline", text: "Rename symbol..." }
+						)
+					}
+
+					this.customCategories.forEach(c => {
+						menuEntries.push({
+							result: "add:" + c.name,
+							text: `Add to "${c.name}"`
+						})
+					})
+
+					menuEntries.push({ result: "new", text: "Add to new category..." })
+					menuEntries.push({ result: "duplicate", text: "Duplicate symbol and customize..." })
+
+					if (symbol.isCustomSymbol) {
+						menuEntries.push({ result: "delete", iconText: "delete", text: "Delete from library" })
+					}
 
 					const menu = new ContextMenu(menuEntries)
 					menu.openForResult(ev.clientX, ev.clientY).then(async (res) => {
-						if (res === "new") {
-							const name = prompt("請輸入自訂分類名稱：")
+						if (res === "edit") {
+							SymbolEditorController.instance.open("custom-" + symbol.tikzName)
+						} else if (res === "rename") {
+							const newName = await this.openRenameModal("Rename Custom Symbol", symbol.tikzName)
+							if (newName) this.renameCustomGraphicsSymbol(symbol.tikzName, newName)
+						} else if (res === "delete") {
+							console.log("[addButton delete] Triggered openConfirm for:", symbol.tikzName);
+							const ok = await this.openConfirm(
+								"Delete Symbol",
+								`Are you sure you want to completely delete custom symbol "${symbol.tikzName}"?\n(Components already placed on the canvas will not be affected)`
+							);
+							console.log("[addButton delete] openConfirm resolved:", ok);
+							if (ok) {
+								console.log("[addButton delete] executing deleteCustomGraphicsSymbol for:", symbol.tikzName);
+								this.deleteCustomGraphicsSymbol(symbol.tikzName)
+							}
+						} else if (res === "new") {
+							const name = await this.openPrompt("New Category", "Please enter a custom category name:")
 							if (name) {
 								this.addCustomCategory(name).then(() => {
 									setTimeout(() => {
@@ -1437,7 +1479,10 @@ export class MainController {
 							const catName = res.substring(4)
 							this.addSymbolToCategory(catName, symbol.tikzName)
 						} else if (res === "duplicate") {
-							const newName = prompt("請輸入新自訂符號的名稱（e.g. hvnmos）：")
+							const newName = await this.openPrompt(
+								"Duplicate Symbol",
+								"Please enter a name for the new custom symbol (e.g., hvnmos):"
+							)
 							if (!newName) return
 							const cleanName = newName.trim()
 							if (!cleanName) return
@@ -1445,7 +1490,10 @@ export class MainController {
 							// 選擇分類
 							let catName = ""
 							const catOptions = this.customCategories.map((c, i) => `${i + 1}. ${c.name}`).join("\n")
-							const catIndexStr = prompt(`請輸入數字選擇分類：\n${catOptions}\n\n或直接輸入新分類名稱：`)
+							const catIndexStr = await this.openPrompt(
+								"Select Category",
+								`Please enter a number to select a category:\n${catOptions}\n\nOr enter a new category name directly:`
+							)
 							if (!catIndexStr) return
 							const inputVal = catIndexStr.trim()
 							const index = parseInt(inputVal)
@@ -1743,7 +1791,7 @@ export class MainController {
 		const originalComponentNode = Array.from(symbolSVGElement.getElementsByTagName("component"))
 			.find(c => c.getAttribute("tikz") === originalSymbol.tikzName)
 		if (!originalComponentNode) {
-			alert("找不到原符號的中繼資料！")
+			await this.openAlert("Missing Metadata", "Could not find the metadata for the original symbol!")
 			return
 		}
 
@@ -1822,6 +1870,9 @@ export class MainController {
 			const sym = (ev.target as IDBRequest).result
 			if (!sym) return
 
+			// 收集舊的 symbol IDs 以便稍後在 DOM 中刪除
+			const oldSymbolIds = Object.keys(sym.symbols)
+
 			sym.id = newId
 			sym.tikzName = newTikzName
 			sym.displayName = newTikzName
@@ -1870,19 +1921,28 @@ export class MainController {
 						}
 					}
 					catTx.oncomplete = () => {
+						let adoptedComp: Element | null = null;
 						// 3. 更新 DOM 中的 `#symbolDB` 節點
 						const symbolDB = document.getElementById("symbolDB")
 						if (symbolDB) {
-							// 刪除舊的 symbols 節點，並加入新 id 節點
-							for (const oldFor in sym.symbols) {
+							// 刪除舊的 symbols 節點
+							for (const oldFor of oldSymbolIds) {
 								const oldNode = document.getElementById(oldFor)
 								if (oldNode) oldNode.remove()
 							}
+							// 刪除舊的 component 節點
+							const oldCompNode = symbolDB.querySelector(`component[tikz="${oldTikzName}"]`)
+							if (oldCompNode) oldCompNode.remove()
+
+							// 加入新 id 節點
 							for (const newFor in newSymbolsMap) {
 								const parsedSym = parser.parseFromString(newSymbolsMap[newFor], "image/svg+xml")
 								const adopted = document.adoptNode(parsedSym.firstElementChild!)
 								symbolDB.appendChild(adopted)
 							}
+							// 加入新的 component 節點到 DOM 中，以維持與它的 symbols 相同的 ownerDocument 綁定
+							adoptedComp = document.adoptNode(compNode)
+							symbolDB.appendChild(adoptedComp)
 						}
 
 						// 4. 更新記憶體中 `this.symbols` 的 ComponentSymbol 實體
@@ -1890,7 +1950,8 @@ export class MainController {
 						if (oldCompSymbolIdx >= 0) {
 							this.symbols.splice(oldCompSymbolIdx, 1)
 						}
-						const newCompSymbol = new ComponentSymbol(compNode)
+						const targetNode = adoptedComp || compNode
+						const newCompSymbol = new ComponentSymbol(targetNode)
 						this.symbols.push(newCompSymbol)
 
 						// 5. 更新畫布上正在使用的元件的 referenceSymbol 與 tikzName 參照，並重新 update
@@ -1999,10 +2060,10 @@ export class MainController {
 				])
 				menu.openForResult(ev.clientX, ev.clientY).then(async (res) => {
 					if (res === "rename") {
-						const newName = await this.openRenameModal(`更名分類「${cat.name}」`, cat.name)
+						const newName = await this.openRenameModal("Rename Category", cat.name)
 						if (newName) this.renameCustomCategory(cat.name, newName)
 					} else if (res === "delete") {
-						if (confirm(`確定要刪除分類 "${cat.name}" 嗎？`)) {
+						if (await this.openConfirm("Delete Category", `Are you sure you want to delete category "${cat.name}"?`)) {
 							this.deleteCustomCategory(cat.name)
 						}
 					}
@@ -2044,12 +2105,15 @@ export class MainController {
 								if (res === "edit") {
 									SymbolEditorController.instance.open(customSymbol.id)
 								} else if (res === "rename") {
-									const newName = await this.openRenameModal(`更名自訂符號「${symbolId}」`, symbolId)
+									const newName = await this.openRenameModal("Rename Custom Symbol", symbolId)
 									if (newName) this.renameCustomGraphicsSymbol(symbolId, newName)
 								} else if (res === "remove") {
 									this.removeSymbolFromCategory(cat.name, symbolId)
 								} else if (res === "delete") {
-									if (confirm(`確定要完全刪除自訂符號 "${symbolId}" 嗎？\n（畫布上已放置的元件不受影響）`)) {
+									if (await this.openConfirm(
+										"Delete Symbol",
+										`Are you sure you want to completely delete custom symbol "${symbolId}"?\n(Components already placed on the canvas will not be affected)`
+									)) {
 										this.deleteCustomGraphicsSymbol(symbolId)
 									}
 								}
@@ -2063,12 +2127,15 @@ export class MainController {
 							])
 							menu.openForResult(ev.clientX, ev.clientY).then(async (res) => {
 								if (res === "rename") {
-									const newName = await this.openRenameModal(`更名子電路「${customSymbol.displayName}」`, customSymbol.displayName)
+									const newName = await this.openRenameModal("Rename Subcircuit", customSymbol.displayName)
 									if (newName) this.renameCustomSymbol(customSymbol.id, newName)
 								} else if (res === "remove") {
 									this.removeSymbolFromCategory(cat.name, symbolId)
 								} else if (res === "delete") {
-									if (confirm(`確定要完全刪除子電路 "${customSymbol.displayName}" 嗎？\n（畫布上已放置的元件不受影響）`)) {
+									if (await this.openConfirm(
+										"Delete Subcircuit",
+										`Are you sure you want to completely delete subcircuit "${customSymbol.displayName}"?\n(Components already placed on the canvas will not be affected)`
+									)) {
 										this.deleteCustomSymbol(symbolId)
 									}
 								}
@@ -2221,6 +2288,8 @@ export class MainController {
 			input.value = currentName
 
 			const bsModal = new Modal(modalEl)
+			let isConfirmed = false
+			let resolvedValue: string | null = null
 
 			const cleanup = () => {
 				confirmBtn.removeEventListener("click", onConfirm)
@@ -2228,23 +2297,136 @@ export class MainController {
 				modalEl.removeEventListener("hidden.bs.modal", onDismiss)
 			}
 			const onConfirm = () => {
-				const val = input.value.trim() || null
-				cleanup()
+				resolvedValue = input.value.trim() || null
+				isConfirmed = true
 				bsModal.hide()
-				resolve(val)
 			}
 			const onDismiss = () => {
 				cleanup()
-				resolve(null)
+				resolve(isConfirmed ? resolvedValue : null)
 			}
 			const onKeydown = (ev: KeyboardEvent) => {
 				if (ev.key === "Enter") onConfirm()
 			}
 
-			confirmBtn.addEventListener("click", onConfirm, { once: true })
+			confirmBtn.addEventListener("click", onConfirm)
 			input.addEventListener("keydown", onKeydown)
 			modalEl.addEventListener("hidden.bs.modal", onDismiss, { once: true })
 			modalEl.addEventListener("shown.bs.modal", () => { input.focus(); input.select() }, { once: true })
+
+			bsModal.show()
+		})
+	}
+
+	/**
+	 * Opens a custom Bootstrap Prompt Modal with English UI.
+	 */
+	public openPrompt(title: string, message: string, defaultValue = ""): Promise<string | null> {
+		return new Promise((resolve) => {
+			const modalEl = document.getElementById("customPromptModal") as HTMLDivElement
+			const input = document.getElementById("customPromptModalInput") as HTMLInputElement
+			const label = document.getElementById("customPromptModalLabel") as HTMLElement
+			const messageEl = document.getElementById("customPromptModalMessage") as HTMLElement
+			const confirmBtn = document.getElementById("customPromptModalConfirm") as HTMLButtonElement
+
+			label.textContent = title
+			messageEl.textContent = message
+			input.value = defaultValue
+
+			const bsModal = new Modal(modalEl)
+			let isConfirmed = false
+			let resolvedValue: string | null = null
+
+			const cleanup = () => {
+				confirmBtn.removeEventListener("click", onConfirm)
+				input.removeEventListener("keydown", onKeydown)
+				modalEl.removeEventListener("hidden.bs.modal", onDismiss)
+			}
+			const onConfirm = () => {
+				resolvedValue = input.value.trim() || null
+				isConfirmed = true
+				bsModal.hide()
+			}
+			const onDismiss = () => {
+				cleanup()
+				resolve(isConfirmed ? resolvedValue : null)
+			}
+			const onKeydown = (ev: KeyboardEvent) => {
+				if (ev.key === "Enter") onConfirm()
+			}
+
+			confirmBtn.addEventListener("click", onConfirm)
+			input.addEventListener("keydown", onKeydown)
+			modalEl.addEventListener("hidden.bs.modal", onDismiss, { once: true })
+			modalEl.addEventListener("shown.bs.modal", () => { input.focus(); input.select() }, { once: true })
+
+			bsModal.show()
+		})
+	}
+
+	/**
+	 * Opens a custom Bootstrap Confirm Modal with English UI.
+	 */
+	public openConfirm(title: string, message: string): Promise<boolean> {
+		return new Promise((resolve) => {
+			const modalEl = document.getElementById("customConfirmModal") as HTMLDivElement
+			const label = document.getElementById("customConfirmModalLabel") as HTMLElement
+			const messageEl = document.getElementById("customConfirmModalMessage") as HTMLElement
+			const confirmBtn = document.getElementById("customConfirmModalConfirm") as HTMLButtonElement
+
+			label.textContent = title
+			messageEl.textContent = message
+
+			const bsModal = new Modal(modalEl)
+			let isConfirmed = false
+
+			const cleanup = () => {
+				confirmBtn.removeEventListener("click", onConfirm)
+				modalEl.removeEventListener("hidden.bs.modal", onDismiss)
+			}
+			const onConfirm = () => {
+				isConfirmed = true
+				bsModal.hide()
+			}
+			const onDismiss = () => {
+				cleanup()
+				resolve(isConfirmed)
+			}
+
+			confirmBtn.addEventListener("click", onConfirm)
+			modalEl.addEventListener("hidden.bs.modal", onDismiss, { once: true })
+
+			bsModal.show()
+		})
+	}
+
+	/**
+	 * Opens a custom Bootstrap message modal for system notifications.
+	 */
+	public openAlert(title: string, message: string): Promise<void> {
+		return new Promise((resolve) => {
+			const modalEl = document.getElementById("systemMessageModal") as HTMLDivElement
+			const label = document.getElementById("systemMessageModalLabel") as HTMLElement
+			const messageEl = document.getElementById("systemMessageModalMessage") as HTMLElement
+			const confirmBtn = document.getElementById("systemMessageModalConfirm") as HTMLButtonElement
+
+			label.textContent = title
+			messageEl.textContent = message
+
+			const bsModal = new Modal(modalEl)
+
+			const cleanup = () => {
+				confirmBtn.removeEventListener("click", onConfirm)
+				modalEl.removeEventListener("hidden.bs.modal", onDismiss)
+			}
+			const onConfirm = () => bsModal.hide()
+			const onDismiss = () => {
+				cleanup()
+				resolve()
+			}
+
+			confirmBtn.addEventListener("click", onConfirm)
+			modalEl.addEventListener("hidden.bs.modal", onDismiss, { once: true })
 
 			bsModal.show()
 		})
@@ -2399,7 +2581,7 @@ export class MainController {
 	public async createSubcircuitFromSelection() {
 		let selected = SelectionController.instance.currentlySelectedComponents
 		if (selected.length === 0) {
-			alert("請先選取要建立自訂元件的元器件！")
+			await this.openAlert("Create Custom Component", "Please select components to create a custom component.")
 			return
 		}
 
@@ -2413,7 +2595,7 @@ export class MainController {
 			if (newSelected.length === 1 && (newSelected[0] instanceof GroupComponent || newSelected[0].constructor.name === "GroupComponent")) {
 				groupComp = newSelected[0] as GroupComponent
 			} else {
-				alert("建立群組失敗，無法存為自訂元件！")
+				await this.openAlert("Create Custom Component", "Failed to create a group, cannot save as custom component.")
 				return
 			}
 		}
@@ -2472,7 +2654,7 @@ export class MainController {
 		confirmBtn.onclick = async () => {
 			let name = nameInput.value.trim()
 			if (!name) {
-				alert("請輸入元件名稱！")
+				await this.openAlert("Save Custom Component", "Please enter a component name.")
 				return
 			}
 
@@ -2487,7 +2669,7 @@ export class MainController {
 			if (categoryName === "__NEW_CATEGORY__") {
 				categoryName = newCategoryInput.value.trim()
 				if (!categoryName) {
-					alert("請輸入新分類名稱！")
+					await this.openAlert("Save Custom Component", "Please enter a new category name.")
 					return
 				}
 				if (!this.customCategories.some(c => c.name === categoryName)) {
@@ -2497,7 +2679,7 @@ export class MainController {
 
 			const idx = this.circuitComponents.indexOf(group)
 			if (idx === -1) {
-				alert("找不到群組物件，無法儲存！")
+				await this.openAlert("Save Custom Component", "Cannot find the group object; unable to save.")
 				bsModal.hide()
 				return
 			}
@@ -2914,3 +3096,5 @@ export class MainController {
 		return `\\tikzset{\n${definitions.join(",\n")}\n}`
 	}
 }
+
+

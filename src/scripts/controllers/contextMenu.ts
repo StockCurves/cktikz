@@ -30,7 +30,7 @@ export class ContextMenu {
 
 		// <ul class="dropdown-menu dropdown-menu-end" id="exportModalFileExtensionDropdown"></ul>
 		this.menuElement = document.createElement("ul")
-		this.menuElement.classList.add("dropdown-menu")
+		this.menuElement.classList.add("dropdown-menu", "context-menu")
 		this.menuElement.style.position = "absolute"
 		this.menuElement.style.zIndex = "2000" // above Bootstrap offcanvas (1045)
 		document.body.appendChild(this.menuElement)
@@ -109,9 +109,25 @@ export class ContextMenu {
 		document.body.addEventListener("click", this.onMenuEntryClick, { passive: true })
 		document.body.addEventListener("touchend", this.onMenuEntryClick, { passive: false }) // needed to recognize touches outside the contextmenu
 
-		this.menuElement.style.left = x + "px"
-		this.menuElement.style.top = y + "px"
 		this.menuElement.classList.add("show")
+
+		// Prevent context menu from overflowing the screen boundaries
+		const rect = this.menuElement.getBoundingClientRect()
+		let left = x
+		let top = y
+
+		if (left + rect.width > window.innerWidth) {
+			left = window.innerWidth - rect.width - 10
+		}
+		if (left < 0) left = 10
+
+		if (top + rect.height > window.innerHeight) {
+			top = window.innerHeight - rect.height - 10
+		}
+		if (top < 0) top = 10
+
+		this.menuElement.style.left = left + "px"
+		this.menuElement.style.top = top + "px"
 		this.menuElement.focus()
 
 		return promise

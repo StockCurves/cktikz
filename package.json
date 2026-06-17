@@ -1,5 +1,5 @@
 {
-	"name": "circutikz-designer",
+	"name": "visiocirkit",
 	"version": "0.8.2",
 	"private": "true",
 	"description": "An interactive, visual, online editor for creating electrical circuit diagrams for LaTeX/CircuiTikZ with ease.",
@@ -24,7 +24,9 @@
 		"build": "parcel build --public-url ./",
 		"update": "npx npm-check-updates -u",
 		"prepack": "npm run build",
-		"start": "parcel serve --lazy",
+		"start": "node scripts/dev.js",
+		"start:client": "parcel serve --lazy",
+		"start:server": "node server.js",
 		"postversion": "git push origin HEAD && node -e \"require('child_process').execSync('git push origin v' + require('./package.json').version, {stdio: 'inherit'})\"",
 		"standalone": "electron-forge start",
 		"electron": "npm run build && electron .",

@@ -150,6 +150,9 @@ export class CanvasController {
 
 		// Drag picture with mouse
 		canvas.on("panning", this.movePaper, this, { passive: false })
+		canvas.on("dblclick", () => {
+			this.fitView()
+		})
 
 		// Mouse wheel OR pinch zoom
 		// Wheel zoom is fired before the actual change and has no detail.box and is thus ignored. It will be handled by wheel.panZoom.

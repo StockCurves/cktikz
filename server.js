@@ -1,5 +1,5 @@
 /**
- * server.js — CkTikz local dev server + LaTeX proxy
+ * server.js — VisioCirkit local dev server + LaTeX proxy
  *
  * Serves static files and proxies POST /api/latex → quicklatex.com
  *
@@ -225,7 +225,7 @@ function proxyLatex(req, res) {
       headers: {
         'Content-Type':   'application/x-www-form-urlencoded',
         'Content-Length': Buffer.byteLength(body),
-        'User-Agent':     'CkTikz-Proxy/1.0',
+        'User-Agent':     'VisioCirkit-Proxy/1.0',
         'Referer':        'https://quicklatex.com/',
       },
     };
@@ -400,5 +400,5 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`\n  ⚡ CkTikz running at http://localhost:${PORT}\n`);
+  console.log(`\n  ⚡ VisioCirkit running at http://localhost:${PORT}\n`);
 });

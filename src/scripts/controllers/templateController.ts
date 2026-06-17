@@ -1,5 +1,6 @@
 import { TikzEditorController } from "./tikzEditorController"
 import { Modal } from "bootstrap"
+import { MainController } from "./mainController"
 
 export class TemplateController {
 	private static _instance: TemplateController
@@ -39,7 +40,7 @@ export class TemplateController {
 	}
 
 	private getApiBase(): string {
-		if (window.location.hostname === "localhost" && window.location.port === "1234") {
+		if (["localhost", "127.0.0.1"].includes(window.location.hostname)) {
 			return "http://localhost:3001"
 		}
 		return ""
@@ -174,7 +175,7 @@ export class TemplateController {
 			this.updateDropdownButtonText()
 		} catch (err: any) {
 			console.error("Failed to load file:", err)
-			alert(`Error loading file: ${err.message}`)
+			await MainController.instance.openAlert("Error loading file", err.message)
 		}
 	}
 
@@ -191,11 +192,11 @@ export class TemplateController {
 	private async confirmSaveToServer() {
 		let filename = this.saveServerFilenameInput.value.trim()
 		if (!filename) {
-			alert("Please enter a filename.")
+			await MainController.instance.openAlert("Save File", "Please enter a filename.")
 			return
 		}
 		if (/[\\/:*?"<>|]/.test(filename)) {
-			alert("Invalid filename characters.")
+			await MainController.instance.openAlert("Save File", "Invalid filename characters.")
 			return
 		}
 		const safeFilename = filename.endsWith(".tex") ? filename : `${filename}.tex`
@@ -220,14 +221,14 @@ export class TemplateController {
 				this.saveServerModal.hide()
 			}
 
-			alert(`Successfully saved to work/${safeFilename}`)
+			await MainController.instance.openAlert("Save Complete", `Successfully saved to work/${safeFilename}`)
 
 			// Refresh file list and reload
 			await this.fetchFiles()
 			await this.loadRemoteFile("work", safeFilename)
 		} catch (err: any) {
 			console.error("Failed to save file:", err)
-			alert(`Save Error: ${err.message}`)
+			await MainController.instance.openAlert("Save Error", err.message)
 		}
 	}
 
@@ -237,9 +238,23 @@ export class TemplateController {
 		this.contextMenuTargetFile = filename
 		this.workContextMenu.style.display = "block"
 		
-		// Position the context menu at mouse position
-		this.workContextMenu.style.left = `${e.pageX}px`
-		this.workContextMenu.style.top = `${e.pageY}px`
+		// Prevent context menu from overflowing the screen boundaries
+		const rect = this.workContextMenu.getBoundingClientRect()
+		let left = e.pageX
+		let top = e.pageY
+
+		if (left + rect.width > window.innerWidth) {
+			left = window.innerWidth - rect.width - 10
+		}
+		if (left < 0) left = 10
+
+		if (top + rect.height > window.innerHeight) {
+			top = window.innerHeight - rect.height - 10
+		}
+		if (top < 0) top = 10
+
+		this.workContextMenu.style.left = `${left}px`
+		this.workContextMenu.style.top = `${top}px`
 	}
 
 	private async confirmDeleteWorkFile() {
@@ -247,7 +262,7 @@ export class TemplateController {
 		const filename = this.contextMenuTargetFile
 		const baseName = filename.replace(/\.tex$/, "")
 
-		const confirmDelete = confirm(`Are you sure you want to delete "${baseName}"?`)
+		const confirmDelete = await MainController.instance.openConfirm("Delete Work", `Are you sure you want to delete "${baseName}"?`)
 		if (!confirmDelete) return
 
 		try {
@@ -267,13 +282,13 @@ export class TemplateController {
 				await this.loadRemoteFile("template", "rc-lowpass.tex")
 			}
 
-			alert(`Successfully deleted ${baseName}`)
+			await MainController.instance.openAlert("Delete Complete", `Successfully deleted ${baseName}`)
 
 			// Refresh the file list
 			await this.fetchFiles()
 		} catch (err: any) {
 			console.error("Failed to delete file:", err)
-			alert(`Delete Error: ${err.message}`)
+			await MainController.instance.openAlert("Delete Error", err.message)
 		} finally {
 			this.contextMenuTargetFile = null
 		}

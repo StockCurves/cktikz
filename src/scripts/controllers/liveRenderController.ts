@@ -15,6 +15,18 @@ export class LiveRenderController {
 	private liveRenderTab: HTMLDivElement | null = null
 	private renderLoading: HTMLDivElement | null = null
 	private tikzjaxContainer: HTMLDivElement | null = null
+	private renderViewport: HTMLDivElement | null = null
+	private renderSurface: HTMLDivElement | null = null
+	private contentElement: HTMLElement | null = null
+	private panScale = 1
+	private panOffsetX = 0
+	private panOffsetY = 0
+	private isPanning = false
+	private panStartX = 0
+	private panStartY = 0
+	private panStartOffsetX = 0
+	private panStartOffsetY = 0
+	private readonly wheelStep = 1.12
 
 	public activeTab: "visual" | "render" = "visual"
 	private renderGeneration = 0
@@ -30,6 +42,8 @@ export class LiveRenderController {
 		this.liveRenderTab = document.getElementById("liveRenderTab") as HTMLDivElement
 		this.renderLoading = document.getElementById("renderLoading") as HTMLDivElement
 		this.tikzjaxContainer = document.getElementById("tikzjaxContainer") as HTMLDivElement
+		this.ensureViewport()
+		this.bindViewportEvents()
 
 		if (this.btnVisualEditor && this.btnLiveRender) {
 			this.btnVisualEditor.addEventListener("click", () => this.switchTab("visual"))
@@ -71,15 +85,157 @@ export class LiveRenderController {
 			const currentCode = TikzEditorController.instance.getCode()
 			if (currentCode !== this.lastRenderedCode) {
 				this.renderTikz()
+			} else {
+				this.centerViewDeferred()
 			}
 		}
 	}
 
 	private getApiBase(): string {
-		if (window.location.hostname === "localhost" && window.location.port === "1234") {
+		if (["localhost", "127.0.0.1"].includes(window.location.hostname)) {
 			return "http://localhost:3001"
 		}
 		return ""
+	}
+
+	private ensureViewport() {
+		if (!this.tikzjaxContainer) return
+		if (!this.renderViewport) {
+			this.renderViewport = document.createElement("div")
+			this.renderViewport.style.cssText =
+				"position:relative;width:100%;height:100%;overflow:hidden;touch-action:none;cursor:grab;"
+			this.tikzjaxContainer.appendChild(this.renderViewport)
+		}
+		if (!this.renderSurface) {
+			this.renderSurface = document.createElement("div")
+			this.renderSurface.style.cssText =
+				"position:absolute;left:0;top:0;transform-origin:0 0;will-change:transform;"
+			this.renderViewport.appendChild(this.renderSurface)
+		}
+	}
+
+	private bindViewportEvents() {
+		if (!this.renderViewport) return
+		this.renderViewport.addEventListener(
+			"contextmenu",
+			(e) => {
+				e.preventDefault()
+			},
+			{ passive: false }
+		)
+		this.renderViewport.addEventListener(
+			"wheel",
+			(e) => {
+				e.preventDefault()
+				const rect = this.renderViewport.getBoundingClientRect()
+				const mouseX = e.clientX - rect.left
+				const mouseY = e.clientY - rect.top
+				const worldX = (mouseX - this.panOffsetX) / this.panScale
+				const worldY = (mouseY - this.panOffsetY) / this.panScale
+				const factor = e.deltaY < 0 ? this.wheelStep : 1 / this.wheelStep
+				const nextScale = Math.min(12, Math.max(0.15, this.panScale * factor))
+				this.panOffsetX = mouseX - worldX * nextScale
+				this.panOffsetY = mouseY - worldY * nextScale
+				this.panScale = nextScale
+				this.applyTransform()
+			},
+			{ passive: false }
+		)
+		this.renderViewport.addEventListener("dblclick", (e) => {
+			e.preventDefault()
+			this.fitView()
+		})
+		this.renderViewport.addEventListener("mousedown", (e) => {
+			if (e.button !== 2) return
+			e.preventDefault()
+			this.isPanning = true
+			this.panStartX = e.clientX
+			this.panStartY = e.clientY
+			this.panStartOffsetX = this.panOffsetX
+			this.panStartOffsetY = this.panOffsetY
+			this.renderViewport!.style.cursor = "grabbing"
+		})
+		document.addEventListener("mousemove", (e) => {
+			if (!this.isPanning) return
+			this.panOffsetX = this.panStartOffsetX + (e.clientX - this.panStartX)
+			this.panOffsetY = this.panStartOffsetY + (e.clientY - this.panStartY)
+			this.applyTransform()
+		})
+		document.addEventListener("mouseup", () => {
+			if (!this.isPanning) return
+			this.isPanning = false
+			if (this.renderViewport) this.renderViewport.style.cursor = "grab"
+		})
+	}
+
+	private applyTransform() {
+		if (!this.renderSurface) return
+		this.renderSurface.style.transform = `translate(${this.panOffsetX}px, ${this.panOffsetY}px) scale(${this.panScale})`
+	}
+
+	private fitViewDeferred() {
+		requestAnimationFrame(() => this.fitView())
+	}
+
+	private centerViewDeferred() {
+		requestAnimationFrame(() => this.centerViewPreserveZoom())
+	}
+
+	private clearRenderedContent() {
+		if (!this.renderSurface) return
+		this.renderSurface.innerHTML = ""
+		this.contentElement = null
+		this.tikzjaxContainer?.querySelectorAll(":scope > div, :scope > iframe, :scope > img, :scope > .render-badge")
+			.forEach((el) => {
+				if (el !== this.renderViewport) el.remove()
+			})
+	}
+
+	public fitView() {
+		if (!this.renderViewport || !this.contentElement) return
+		const viewportRect = this.renderViewport.getBoundingClientRect()
+		if (viewportRect.width <= 0 || viewportRect.height <= 0) return
+
+		let contentRect: DOMRect | null = null
+		if (this.contentElement instanceof HTMLIFrameElement) {
+			const doc = this.contentElement.contentDocument || this.contentElement.contentWindow?.document
+			const svg = doc?.querySelector("svg") as SVGSVGElement | null
+			if (svg) contentRect = svg.getBoundingClientRect()
+		} else {
+			contentRect = this.contentElement.getBoundingClientRect()
+		}
+
+		if (!contentRect || contentRect.width <= 0 || contentRect.height <= 0) return
+
+		const padding = 32
+		const scaleX = (viewportRect.width - padding * 2) / contentRect.width
+		const scaleY = (viewportRect.height - padding * 2) / contentRect.height
+		this.panScale = Math.min(scaleX, scaleY)
+		if (!Number.isFinite(this.panScale) || this.panScale <= 0) this.panScale = 1
+		this.panOffsetX = (viewportRect.width - contentRect.width * this.panScale) / 2
+		this.panOffsetY = (viewportRect.height - contentRect.height * this.panScale) / 2
+		this.applyTransform()
+	}
+
+	private centerViewPreserveZoom() {
+		if (!this.renderViewport || !this.contentElement) return
+		const viewportRect = this.renderViewport.getBoundingClientRect()
+		if (viewportRect.width <= 0 || viewportRect.height <= 0) return
+
+		let contentRect: DOMRect | null = null
+		if (this.contentElement instanceof HTMLIFrameElement) {
+			const doc = this.contentElement.contentDocument || this.contentElement.contentWindow?.document
+			const svg = doc?.querySelector("svg") as SVGSVGElement | null
+			if (svg) contentRect = svg.getBoundingClientRect()
+		} else {
+			contentRect = this.contentElement.getBoundingClientRect()
+		}
+
+		if (!contentRect || contentRect.width <= 0 || contentRect.height <= 0) return
+
+		this.panOffsetX = (viewportRect.width - contentRect.width * this.panScale) / 2
+		this.panOffsetY = (viewportRect.height - contentRect.height * this.panScale) / 2
+		this.applyTransform()
 	}
 
 	public triggerDebouncedRender() {
@@ -229,7 +385,7 @@ export class LiveRenderController {
 		const currentCode = TikzEditorController.instance.getCode()
 
 		if (this.renderLoading) this.renderLoading.style.display = "flex"
-		if (this.tikzjaxContainer) this.tikzjaxContainer.innerHTML = ""
+		this.clearRenderedContent()
 
 		// Remove old errors
 		const prevErr = document.getElementById("render-error-overlay")
@@ -244,20 +400,22 @@ export class LiveRenderController {
 
 			this.lastRenderedCode = currentCode
 			if (this.renderLoading) this.renderLoading.style.display = "none"
-			if (this.tikzjaxContainer) {
-				this.tikzjaxContainer.innerHTML = ""
+			if (this.renderSurface) {
 				const wrapper = document.createElement("div")
 				wrapper.style.cssText =
-					"width:100%;height:100%;display:flex;justify-content:center;align-items:center;padding:20px;box-sizing:border-box;"
+					"display:flex;justify-content:center;align-items:center;padding:20px;box-sizing:border-box;"
 				wrapper.appendChild(img)
-				this.tikzjaxContainer.appendChild(wrapper)
+				this.renderSurface.appendChild(wrapper)
+				this.contentElement = wrapper
 
 				const badge = document.createElement("div")
 				badge.style.cssText =
 					"position:absolute;top:8px;right:12px;font-size:11px;color:var(--text-muted);background:var(--bg-panel);border:1px solid var(--border-color);border-radius:4px;padding:2px 7px;pointer-events:none;z-index:5;"
 				badge.textContent = "⚡ QuickLaTeX"
-				this.tikzjaxContainer.style.position = "relative"
-				this.tikzjaxContainer.appendChild(badge)
+				this.tikzjaxContainer!.style.position = "relative"
+				badge.classList.add("render-badge")
+				this.tikzjaxContainer!.appendChild(badge)
+				this.fitViewDeferred()
 			}
 			return
 		} catch (apiErr: any) {
@@ -276,19 +434,23 @@ export class LiveRenderController {
 
 		// -- Attempt 2: TikZJax WASM iframe --
 		try {
-			await this.renderViaTikZJax(bodyCode, libraries)
+			const iframe = await this.renderViaTikZJax(bodyCode, libraries)
 			if (thisGen !== this.renderGeneration) return
 
 			this.lastRenderedCode = currentCode
 			if (this.renderLoading) this.renderLoading.style.display = "none"
 
-			if (this.tikzjaxContainer) {
+			if (this.renderSurface) {
+				this.renderSurface.appendChild(iframe)
+				this.contentElement = iframe
 				const badge = document.createElement("div")
 				badge.style.cssText =
 					"position:absolute;top:8px;right:12px;font-size:11px;color:var(--text-muted);background:var(--bg-panel);border:1px solid var(--border-color);border-radius:4px;padding:2px 7px;pointer-events:none;z-index:5;"
 				badge.textContent = "🔬 TikZJax"
-				this.tikzjaxContainer.style.position = "relative"
-				this.tikzjaxContainer.appendChild(badge)
+				this.tikzjaxContainer!.style.position = "relative"
+				badge.classList.add("render-badge")
+				this.tikzjaxContainer!.appendChild(badge)
+				this.fitViewDeferred()
 			}
 			return
 		} catch (wasmErr: any) {
@@ -311,7 +473,7 @@ export class LiveRenderController {
 
 	private showRenderError(msg: string, title = "Render Error") {
 		if (this.tikzjaxContainer) {
-			this.tikzjaxContainer.innerHTML = ""
+			this.clearRenderedContent()
 			const errDiv = document.createElement("div")
 			errDiv.id = "render-error-overlay"
 			errDiv.style.cssText =
