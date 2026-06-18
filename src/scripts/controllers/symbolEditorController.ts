@@ -989,8 +989,7 @@ export class SymbolEditorController {
 		this.customSymbol.componentXml = compNode.outerHTML
 		this.customSymbol.symbols = newSymbolsMap
 
-		const transaction = MainController.instance.db.transaction("customSymbols", "readwrite")
-		transaction.objectStore("customSymbols").put(this.customSymbol).onsuccess = () => {
+		MainController.instance.putCustomSymbolRecord(this.customSymbol).then(() => {
 			console.log("Custom symbol successfully saved in IndexedDB:", this.tikzName)
 			
 			// Hot-reload DOM `#symbolDB` content
@@ -1072,6 +1071,6 @@ export class SymbolEditorController {
 			
 			// Refresh Symbols offcanvas view list
 			MainController.instance.loadAndRenderCustomCategories()
-		}
+		})
 	}
 }

@@ -4,6 +4,11 @@ import "../utils/impSVGNumber"
 import { waitForElementLoaded } from "../utils/domWatcher"
 import hotkeys from "hotkeys-js"
 import { version } from "../../../package.json"
+import { CustomSymbolService, type CustomSymbolRecord } from "../services/customSymbolService"
+import { CustomSymbolDomService } from "../services/customSymbolDomService"
+import { IndexedDbService } from "../services/indexedDbService"
+import { SubcircuitPreviewService } from "../services/subcircuitPreviewService"
+import { TabRepository } from "../services/tabRepository"
 
 import {
 	CanvasController,
@@ -123,6 +128,14 @@ export class MainController {
 	public pendingLoadData: SaveFileFormat | null = null
 
 	private db: IDBDatabase
+	private readonly indexedDbService = new IndexedDbService()
+	private readonly customSymbolDomService = new CustomSymbolDomService()
+	private readonly subcircuitPreviewService = new SubcircuitPreviewService()
+	private readonly customSymbolService = new CustomSymbolService(
+		() => this.db,
+		this.customSymbolDomService,
+		(subcircuitData) => this.subcircuitPreviewService.generatePreview(subcircuitData)
+	)
 
 	/**
 	 * Init the app.
@@ -167,13 +180,12 @@ export class MainController {
 			fileExportName.placeholder =
 				MainController.instance.designName.value.replace(/[^a-z0-9]/gi, "_") || "Circuit"
 
-			let tabsObjectStore = MainController.instance.db.transaction("tabs", "readwrite").objectStore("tabs")
-			tabsObjectStore.get(this.tabID).onsuccess = function (event) {
-				const data = (event.target as IDBRequest).result as TabState
+			const tabRepository = new TabRepository<TabState>(MainController.instance.db)
+			tabRepository.getTab(this.tabID).then((data) => {
+				if (!data) return
 				data.designName = MainController.instance.designName.value
-				tabsObjectStore.put(data)
-				MainController.instance.sendBroadcastMessage("update")
-			}
+				tabRepository.putTab(data).then(() => MainController.instance.sendBroadcastMessage("update"))
+			})
 		})
 
 		this.initModeButtons()
@@ -267,11 +279,7 @@ export class MainController {
 			MainController.instance.updateTheme()
 			PropertyController.instance.update()
 			
-			TemplateController.instance.fetchFiles().then(() => {
-				if (!window.location.search.includes("base=")) {
-					TemplateController.instance.loadRemoteFile("template", "rc-lowpass.tex")
-				}
-			}).catch(err => console.error("Error loading templates:", err))
+			TemplateController.instance.initialize().catch((err) => console.error("Error loading templates:", err))
 
 			if (MainController.instance.pendingLoadData) {
 				SaveController.instance.loadFromJSON(MainController.instance.pendingLoadData)
@@ -347,33 +355,8 @@ export class MainController {
 
 		const defaultSettings: CanvasSettings = {}
 
-		const IDBrequest = indexedDB.open("circuitikz-designer-db-v2", 1)
-		IDBrequest.onerror = function (event) {
-			console.error("IndexedDB error")
-			console.error(event)
-		}
-		IDBrequest.onblocked = function (event) {
-			console.warn("Database upgrade blocked. Closing database in other tabs might help.")
-		}
-		IDBrequest.onupgradeneeded = function (event) {
-			MainController.instance.db = (event.target as IDBOpenDBRequest).result
-			if (!MainController.instance.db.objectStoreNames.contains("tabs")) {
-				const objectStore = MainController.instance.db.createObjectStore("tabs", { keyPath: "id" })
-				objectStore.createIndex("open", "open", { unique: false })
-			}
-			if (!MainController.instance.db.objectStoreNames.contains("customCategories")) {
-				MainController.instance.db.createObjectStore("customCategories", { keyPath: "name" })
-			}
-			if (!MainController.instance.db.objectStoreNames.contains("customSymbols")) {
-				MainController.instance.db.createObjectStore("customSymbols", { keyPath: "id" })
-			}
-		}
-		IDBrequest.onsuccess = function (event) {
-			MainController.instance.db = (event.target as IDBOpenDBRequest).result
-			MainController.instance.db.onversionchange = function () {
-				MainController.instance.db.close()
-				console.log("Database closed due to version change request.")
-			}
+		this.indexedDbService.openDatabase().then((db) => {
+			MainController.instance.db = db
 			dbResolve(MainController.instance.db)
 
 			window.addEventListener("visibilitychange", (ev) => {
@@ -386,15 +369,14 @@ export class MainController {
 				MainController.instance.saveCurrentState()
 			})
 
-			let tabsObjectStore = MainController.instance.db.transaction("tabs", "readwrite").objectStore("tabs")
+			const tabRepository = new TabRepository<TabState>(MainController.instance.db)
 
 			// the URL of the current page
 			var url = new URL(window.location.href)
 			// check if a tabID is requested in the URL, otherwise use the first closed tab
 			var requestedID = parseInt(url.searchParams.get("tabID"))
 
-			tabsObjectStore.getAll().onsuccess = function (event) {
-				let allTabs: TabState[] = (event.target as IDBRequest).result
+			tabRepository.getAllTabs().then((allTabs) => {
 
 				if (Number.isNaN(requestedID)) {
 					// no tabID is requested in the URL, so we need to find the first closed tab
@@ -417,9 +399,9 @@ export class MainController {
 					MainController.instance.designName.updateValue(requestedTab.designName ?? "", true, true)
 					CanvasController.instance.setSettings(requestedTab.settings)
 					MainController.instance.pendingLoadData = requestedTab.data
-					tabsObjectStore.put(requestedTab).onsuccess = (event) => {
+					tabRepository.putTab(requestedTab).then(() => {
 						MainController.instance.sendBroadcastMessage("update")
-					}
+					})
 				} else {
 					// requested tab not found, so we create a new one
 					const newEntry: TabState = {
@@ -429,13 +411,13 @@ export class MainController {
 						settings: defaultSettings,
 					}
 					MainController.instance.tabID = requestedID
-					tabsObjectStore.add(newEntry).onsuccess = (event) => {
+					tabRepository.addTab(newEntry).then(() => {
 						// as soon as the tab is created and saved in the db, we can notify the other tabs
 						MainController.instance.sendBroadcastMessage("update")
-					}
+					})
 				}
-			}
-		}
+			})
+		})
 
 		//settings modal
 		const settingsModalEl = document.getElementById("tabManagementModal") as HTMLDivElement
@@ -443,12 +425,9 @@ export class MainController {
 
 		settingsModalEl.addEventListener("show.bs.modal", (event) => {
 			this.saveCurrentState(false)
-			let tabsObjectStoreRead = MainController.instance.db.transaction("tabs").objectStore("tabs")
-
-			tabsObjectStoreRead.getAll().onsuccess = function (event) {
+			const tabRepository = new TabRepository<TabState>(MainController.instance.db)
+			tabRepository.getAllTabs().then((currentData) => {
 				settingsTableBody.innerHTML = ""
-
-				const currentData = (event.target as IDBRequest).result as TabState[]
 
 				let totalSize = 0
 
@@ -493,13 +472,10 @@ export class MainController {
 						deleteButton.classList.add("btn", "btn-danger", "material-symbols-outlined")
 						deleteButton.innerText = "delete"
 						deleteButton.addEventListener("click", () => {
-							let tabsObjectStore = MainController.instance.db
-								.transaction("tabs", "readwrite")
-								.objectStore("tabs")
-							tabsObjectStore.delete(tabData.id).onsuccess = function () {
+							tabRepository.deleteTab(tabData.id).then(() => {
 								settingsModalEl.dispatchEvent(new Event("show.bs.modal"))
 								MainController.instance.sendBroadcastMessage("update")
-							}
+							})
 						})
 					} else {
 						if (tabData.id == MainController.instance.tabID) {
@@ -552,16 +528,15 @@ export class MainController {
 				})
 
 				document.getElementById("storageUsed").innerHTML = sizeString(totalSize)
-			}
+			})
 		})
 
 		document.getElementById("probeRefresh").addEventListener("click", () => {
 			// set all open states in indexedDB to false, then send a probe message to all tabs
-			let tabsObjectStore = MainController.instance.db.transaction("tabs", "readwrite").objectStore("tabs")
-			tabsObjectStore.getAll().onsuccess = function (event) {
-				let allTabs: TabState[] = (event.target as IDBRequest).result
+			const tabRepository = new TabRepository<TabState>(MainController.instance.db)
+			tabRepository.getAllTabs().then((allTabs) => {
 
-				let requests: IDBRequest[] = []
+				let requests: Promise<void>[] = []
 				for (const tab of allTabs) {
 					if (tab.id == MainController.instance.tabID) {
 						// skip this tab
@@ -570,23 +545,15 @@ export class MainController {
 					if (tab.open == "true") {
 						// set the tab to closed in the db, but keep the data (even if the tab is empty)
 						tab.open = "false"
-						requests.push(tabsObjectStore.put(tab))
+						requests.push(tabRepository.putTab(tab))
 					} else {
 						// if the tab is already closed and has no data, delete the entry (keeps the db clean)
 						if (tab.data.components.length == 0) {
-							requests.push(tabsObjectStore.delete(tab.id))
+							requests.push(tabRepository.deleteTab(tab.id))
 						}
 					}
 				}
-				Promise.all(
-					requests.map(
-						(r) =>
-							new Promise((res, rej) => {
-								r.onsuccess = () => res(true)
-								r.onerror = () => rej()
-							})
-					)
-				).then(() => {
+				Promise.all(requests).then(() => {
 					// after all tabs are closed (in the db, not the tab in the browser), send a probe message to all tabs
 					// this will cause all open tabs to set their state to open=true again
 					settingsModalEl.dispatchEvent(new Event("show.bs.modal"))
@@ -594,7 +561,7 @@ export class MainController {
 						MainController.instance.sendBroadcastMessage("probe")
 					}, 10)
 				})
-			}
+			})
 		})
 
 		const favicon = document.getElementById("favicon") as HTMLLinkElement
@@ -651,16 +618,15 @@ export class MainController {
 				}
 
 				// set the indexedDB entry with tabID msg.tabID to open=true
-				let tabsObjectStore = MainController.instance.db.transaction("tabs", "readwrite").objectStore("tabs")
-				tabsObjectStore.get(msg.from).onsuccess = function (event) {
-					const data = (event.target as IDBRequest).result as TabState
+				const tabRepository = new TabRepository<TabState>(MainController.instance.db)
+				tabRepository.getTab(msg.from).then((data) => {
 					if (data) {
 						data.open = "true"
-						tabsObjectStore.put(data).onsuccess = function () {
+						tabRepository.putTab(data).then(() => {
 							MainController.instance.sendBroadcastMessage("update")
-						}
+						})
 					}
-				}
+				})
 				if (settingsModalEl.classList.contains("show")) {
 					settingsModalEl.dispatchEvent(new Event("show.bs.modal"))
 				}
@@ -705,9 +671,9 @@ export class MainController {
 
 	private saveCurrentState(closeTab = true) {
 		Undo.addState()
-		let tabsObjectStore = MainController.instance.db.transaction("tabs", "readwrite").objectStore("tabs")
-		tabsObjectStore.get(this.tabID).onsuccess = function (event) {
-			const data = (event.target as IDBRequest).result as TabState
+		const tabRepository = new TabRepository<TabState>(MainController.instance.db)
+		tabRepository.getTab(this.tabID).then((data) => {
+			if (!data) return
 			if (closeTab) {
 				data.open = "false"
 			}
@@ -719,18 +685,18 @@ export class MainController {
 				data.settings.viewBox = CanvasController.instance.canvas.viewbox()
 				data.settings.viewZoom = CanvasController.instance.currentZoom
 				data.designName = MainController.instance.designName.value || undefined
-				tabsObjectStore.put(data).onsuccess = function () {
+				tabRepository.putTab(data).then(() => {
 					MainController.instance.sendBroadcastMessage("update")
-				}
+				})
 			} else {
 				if (closeTab) {
 					// if no data is present, delete the entry (keeps the db clean)
-					tabsObjectStore.delete(MainController.instance.tabID).onsuccess = function () {
+					tabRepository.deleteTab(MainController.instance.tabID).then(() => {
 						MainController.instance.sendBroadcastMessage("update")
-					}
+					})
 				}
 			}
-		}
+		})
 	}
 
 	/**
@@ -1739,286 +1705,65 @@ export class MainController {
 	}
 
 	public async loadCustomSymbolsIntoSymbolDB() {
-		const transaction = this.db.transaction("customSymbols", "readonly")
-		const store = transaction.objectStore("customSymbols")
-		const syms = await new Promise<any[]>((resolve) => {
-			store.getAll().onsuccess = (ev) => resolve((ev.target as IDBRequest).result || [])
-		})
-
 		const symbolsSVGElement = document.getElementById("symbolDB")
 		if (!symbolsSVGElement) return
 
-		for (const sym of syms) {
-			if (sym.isCustomSymbol) {
-				// 1. 將它的 symbols XML 插入到 DOM 中
-				for (const symId in sym.symbols) {
-					const symXml = sym.symbols[symId]
-					console.log(`[LoadCustom] Restoring symbol ID: ${symId}, XML length: ${symXml ? symXml.length : 0}`);
-					if (!document.getElementById(symId)) {
-						const wrapper = `<svg xmlns="http://www.w3.org/2000/svg">${symXml}</svg>`
-						const parsed = new DOMParser().parseFromString(wrapper, "image/svg+xml")
-						const symbolNode = parsed.querySelector("symbol")
-						if (symbolNode) {
-							const node = document.adoptNode(symbolNode)
-							symbolsSVGElement.appendChild(node)
-							console.log(`[LoadCustom] Appended symbol ${symId} to DOM. Exists?`, !!document.getElementById(symId));
-						}
-					}
-				}
-				// 2. 將 componentXml 解析並建立 ComponentSymbol
-				const compWrapper = `<svg xmlns="http://www.w3.org/2000/svg">${sym.componentXml}</svg>`
-				const parsedComp = new DOMParser().parseFromString(compWrapper, "image/svg+xml")
-				const compElement = parsedComp.querySelector("component")
-				if (compElement) {
-					const compNode = document.adoptNode(compElement)
-					symbolsSVGElement.appendChild(compNode)
-					
-					if (!this.symbols.some(s => s.tikzName === sym.tikzName)) {
-						const compSymbol = new ComponentSymbol(compNode)
-						compSymbol.isCustomSymbol = true
-						this.symbols.push(compSymbol)
-					}
-				}
-			}
-		}
+		this.customSymbols = await this.customSymbolService.loadCustomSymbolsIntoDomAndRuntime(
+			symbolsSVGElement,
+			this.symbols
+		)
 	}
 
 	public async duplicateSymbol(originalSymbol: ComponentSymbol, newTikzName: string, categoryName: string) {
 		const symbolSVGElement = document.getElementById("symbolDB")
 		if (!symbolSVGElement) return
 
-		// 1. 取得原 component XML 節點
-		const originalComponentNode = Array.from(symbolSVGElement.getElementsByTagName("component"))
-			.find(c => c.getAttribute("tikz") === originalSymbol.tikzName)
-		if (!originalComponentNode) {
+		const duplicated = await this.customSymbolService.duplicateSymbol(
+			symbolSVGElement,
+			this.symbols,
+			originalSymbol,
+			newTikzName,
+			categoryName
+		)
+		if (!duplicated) {
 			await this.openAlert("Missing Metadata", "Could not find the metadata for the original symbol!")
 			return
 		}
 
-		// 2. 複製節點並修改屬性
-		const newComponentNode = originalComponentNode.cloneNode(true) as Element
-		newComponentNode.setAttribute("tikz", newTikzName)
-		newComponentNode.setAttribute("display", newTikzName)
-
-		// 3. 處理 variants 及對應的 `<symbol>`
-		const variants = newComponentNode.getElementsByTagName("variant")
-		const symbolsMap: { [key: string]: string } = {}
-
-		for (let i = 0; i < variants.length; i++) {
-			const variant = variants[i]
-			const originalFor = variant.getAttribute("for")
-			if (originalFor) {
-				let originalSymbolNode = document.getElementById(originalFor)
-				if (!originalSymbolNode && symbolSVGElement) {
-					originalSymbolNode = symbolSVGElement.querySelector(`symbol[id="${originalFor}"], [id="${originalFor}"]`)
-				}
-				if (originalSymbolNode) {
-					const newSymbolId = `node_custom_${newTikzName}_${i === 0 ? "default" : i}`
-					const newSymbolNode = originalSymbolNode.cloneNode(true) as Element
-					newSymbolNode.setAttribute("id", newSymbolId)
-					
-					// 插入到 DOM 中
-					symbolSVGElement.appendChild(newSymbolNode)
-					
-					// 更新 variant 指向
-					variant.setAttribute("for", newSymbolId)
-					
-					// 收集 XML
-					symbolsMap[newSymbolId] = newSymbolNode.outerHTML
-				} else {
-					console.error(`[Duplicate] Could not find original symbol node for ID: ${originalFor}`);
-				}
-			}
-		}
-
-		// 4. 打包儲存至 IndexedDB
-		const customSymbolId = "custom-" + newTikzName
-		const customSymbolData = {
-			id: customSymbolId,
-			tikzName: newTikzName,
-			displayName: newTikzName,
-			isCustomSymbol: true,
-			isNodeSymbol: originalSymbol.isNodeSymbol,
-			baseSymbol: originalSymbol.tikzName,
-			componentXml: newComponentNode.outerHTML,
-			symbols: symbolsMap
-		}
-
-		// 5. 記憶體中實例化 ComponentSymbol 并推入 lists
-		symbolSVGElement.appendChild(newComponentNode)
-		console.log(`[Duplicate] Appended component node for ${newTikzName} to DOM. XML:`, newComponentNode.outerHTML)
-		const compSymbol = new ComponentSymbol(newComponentNode)
-		compSymbol.isCustomSymbol = true
-		this.symbols = this.symbols.filter(s => s.tikzName !== newTikzName)
-		this.symbols.push(compSymbol)
-
-		// 6. 保存至自訂類別
-		await this.addSymbolToCategory(categoryName, newTikzName, customSymbolData)
+		this.customSymbolService.replaceCustomSymbolRecord(this.customSymbols, duplicated.updatedRecord)
+		this.loadAndRenderCustomCategories()
 	}
 
 	public async renameCustomGraphicsSymbol(oldTikzName: string, newTikzName: string) {
 		newTikzName = newTikzName.trim()
 		if (!newTikzName || newTikzName === oldTikzName) return
 
-		const oldId = "custom-" + oldTikzName
-		const newId = "custom-" + newTikzName
+		const symbolDB = document.getElementById("symbolDB")
+		if (!symbolDB) return
 
-		// 1. 更新 customSymbols 物件儲存區
-		const symTx = this.db.transaction("customSymbols", "readwrite")
-		const symStore = symTx.objectStore("customSymbols")
-		symStore.get(oldId).onsuccess = (ev) => {
-			const sym = (ev.target as IDBRequest).result
-			if (!sym) return
+		await this.customSymbolService.renameCustomGraphicsSymbol(
+			oldTikzName,
+			newTikzName,
+			symbolDB,
+			this.symbols,
+			this.customSymbols,
+			this.circuitComponents
+		)
 
-			// 收集舊的 symbol IDs 以便稍後在 DOM 中刪除
-			const oldSymbolIds = Object.keys(sym.symbols)
-
-			sym.id = newId
-			sym.tikzName = newTikzName
-			sym.displayName = newTikzName
-
-			// 更新 componentXml 的 tikz 與 display 屬性
-			const parser = new DOMParser()
-			const compDoc = parser.parseFromString(sym.componentXml, "image/svg+xml")
-			const compNode = compDoc.querySelector("component")!
-			compNode.setAttribute("tikz", newTikzName)
-			compNode.setAttribute("display", newTikzName)
-
-			// 更新 variants 的 for 屬性及 map 中的 symbol ids
-			const variants = compNode.getElementsByTagName("variant")
-			const newSymbolsMap: { [key: string]: string } = {}
-			for (let i = 0; i < variants.length; i++) {
-				const variant = variants[i]
-				const oldFor = variant.getAttribute("for")!
-				const newFor = oldFor.replace(oldTikzName, newTikzName)
-				variant.setAttribute("for", newFor)
-
-				if (sym.symbols[oldFor]) {
-					// 替換 symbol id 定義 XML
-					const symDoc = parser.parseFromString(sym.symbols[oldFor], "image/svg+xml")
-					symDoc.querySelector("symbol")!.setAttribute("id", newFor)
-					newSymbolsMap[newFor] = symDoc.querySelector("symbol")!.outerHTML
-				}
-			}
-
-			sym.componentXml = compNode.outerHTML
-			sym.symbols = newSymbolsMap
-
-			symStore.delete(oldId)
-			symStore.put(sym)
-
-			symTx.oncomplete = () => {
-				// 2. 更新 customCategories 中的 symbolIds
-				const catTx = this.db.transaction("customCategories", "readwrite")
-				const catStore = catTx.objectStore("customCategories")
-				catStore.getAll().onsuccess = (ev) => {
-					const cats = (ev.target as IDBRequest).result || []
-					for (const cat of cats) {
-						const idx = cat.symbolIds.indexOf(oldTikzName)
-						if (idx >= 0) {
-							cat.symbolIds[idx] = newTikzName
-							catStore.put(cat)
-						}
-					}
-					catTx.oncomplete = () => {
-						let adoptedComp: Element | null = null;
-						// 3. 更新 DOM 中的 `#symbolDB` 節點
-						const symbolDB = document.getElementById("symbolDB")
-						if (symbolDB) {
-							// 刪除舊的 symbols 節點
-							for (const oldFor of oldSymbolIds) {
-								const oldNode = document.getElementById(oldFor)
-								if (oldNode) oldNode.remove()
-							}
-							// 刪除舊的 component 節點
-							const oldCompNode = symbolDB.querySelector(`component[tikz="${oldTikzName}"]`)
-							if (oldCompNode) oldCompNode.remove()
-
-							// 加入新 id 節點
-							for (const newFor in newSymbolsMap) {
-								const parsedSym = parser.parseFromString(newSymbolsMap[newFor], "image/svg+xml")
-								const adopted = document.adoptNode(parsedSym.firstElementChild!)
-								symbolDB.appendChild(adopted)
-							}
-							// 加入新的 component 節點到 DOM 中，以維持與它的 symbols 相同的 ownerDocument 綁定
-							adoptedComp = document.adoptNode(compNode)
-							symbolDB.appendChild(adoptedComp)
-						}
-
-						// 4. 更新記憶體中 `this.symbols` 的 ComponentSymbol 實體
-						const oldCompSymbolIdx = this.symbols.findIndex(s => s.tikzName === oldTikzName)
-						if (oldCompSymbolIdx >= 0) {
-							this.symbols.splice(oldCompSymbolIdx, 1)
-						}
-						const targetNode = adoptedComp || compNode
-						const newCompSymbol = new ComponentSymbol(targetNode)
-						this.symbols.push(newCompSymbol)
-
-						// 5. 更新畫布上正在使用的元件的 referenceSymbol 與 tikzName 參照，並重新 update
-						for (const comp of this.circuitComponents) {
-							if (comp.referenceSymbol && comp.referenceSymbol.tikzName === oldTikzName) {
-								comp.referenceSymbol = newCompSymbol
-								if ((comp as any).displayName === oldTikzName) {
-									(comp as any).displayName = newTikzName
-								}
-								comp.update()
-							}
-						}
-
-						// 6. 重新載入與渲染左側 Offcanvas
-						this.loadAndRenderCustomCategories()
-					}
-				}
-			}
-		}
+		this.loadAndRenderCustomCategories()
 	}
 
 	public async deleteCustomGraphicsSymbol(tikzName: string) {
-		const symbolId = "custom-" + tikzName
-
-		// 1. 從所有類別中移除該 symbol id
-		const catTx = this.db.transaction("customCategories", "readwrite")
-		const catStore = catTx.objectStore("customCategories")
-		catStore.getAll().onsuccess = (ev) => {
-			const cats = (ev.target as IDBRequest).result || []
-			for (const cat of cats) {
-				if (cat.symbolIds.includes(tikzName)) {
-					cat.symbolIds = cat.symbolIds.filter((id: string) => id !== tikzName)
-					catStore.put(cat)
-				}
-			}
-
-			catTx.oncomplete = () => {
-				// 2. 從 customSymbols 中刪除
-				const symTx = this.db.transaction("customSymbols", "readwrite")
-				symTx.objectStore("customSymbols").delete(symbolId).onsuccess = () => {
-					// 3. 從記憶體 `this.symbols` 移除
-					this.symbols = this.symbols.filter(s => s.tikzName !== tikzName)
-
-					// 4. 重新載入
-					this.loadAndRenderCustomCategories()
-				}
-			}
-		}
+		await this.customSymbolService.deleteCustomGraphicsSymbol(tikzName, this.symbols, this.customSymbols)
+		this.loadAndRenderCustomCategories()
 	}
 
 	public customCategories: { name: string; symbolIds: string[] }[] = []
-	public customSymbols: any[] = []
+	public customSymbols: CustomSymbolRecord[] = []
 
 	public async loadAndRenderCustomCategories() {
-		const transaction = this.db.transaction(["customCategories", "customSymbols"], "readonly")
-		const catStore = transaction.objectStore("customCategories")
-		const symStore = transaction.objectStore("customSymbols")
-
-		const catsPromise = new Promise<{ name: string; symbolIds: string[] }[]>((resolve) => {
-			catStore.getAll().onsuccess = (ev) => resolve((ev.target as IDBRequest).result || [])
-		})
-		const symsPromise = new Promise<any[]>((resolve) => {
-			symStore.getAll().onsuccess = (ev) => resolve((ev.target as IDBRequest).result || [])
-		})
-
-		this.customCategories = await catsPromise
-		this.customSymbols = await symsPromise
+		this.customCategories = await this.customSymbolService.getCustomCategories()
+		this.customSymbols = await this.customSymbolService.getCustomSymbols()
 
 		const leftOffcanvasAccordion = document.getElementById("leftOffcanvasAccordion") as HTMLDivElement
 		const leftOffcanvas: HTMLDivElement = document.getElementById("leftOffcanvas") as HTMLDivElement
@@ -2229,8 +1974,7 @@ export class MainController {
 							if (preview) {
 								customSymbol.svgPreview = preview
 								addButton.innerHTML = preview
-								const symTx = this.db.transaction("customSymbols", "readwrite")
-								symTx.objectStore("customSymbols").put(customSymbol)
+								this.customSymbolService.putCustomSymbol(customSymbol)
 							} else {
 								// fallback to original placeholder
 								let svgIcon = SVG.SVG().addTo(addButton)
@@ -2258,19 +2002,13 @@ export class MainController {
 	public async addCustomCategory(name: string) {
 		name = name.trim()
 		if (!name) return
-		const transaction = this.db.transaction("customCategories", "readwrite")
-		const store = transaction.objectStore("customCategories")
-		store.put({ name, symbolIds: [] }).onsuccess = () => {
-			this.loadAndRenderCustomCategories()
-		}
+		await this.customSymbolService.addCategory(name)
+		this.loadAndRenderCustomCategories()
 	}
 
 	public async deleteCustomCategory(name: string) {
-		const transaction = this.db.transaction("customCategories", "readwrite")
-		const store = transaction.objectStore("customCategories")
-		store.delete(name).onsuccess = () => {
-			this.loadAndRenderCustomCategories()
-		}
+		await this.customSymbolService.deleteCategory(name)
+		this.loadAndRenderCustomCategories()
 	}
 
 	/**
@@ -2440,16 +2178,8 @@ export class MainController {
 		newName = newName.trim()
 		if (!newName || newName === oldName) return
 
-		const transaction = this.db.transaction("customCategories", "readwrite")
-		const catStore = transaction.objectStore("customCategories")
-		catStore.get(oldName).onsuccess = (ev) => {
-			const cat = (ev.target as IDBRequest).result
-			if (!cat) return
-			catStore.delete(oldName)
-			cat.name = newName
-			catStore.put(cat)
-			transaction.oncomplete = () => this.loadAndRenderCustomCategories()
-		}
+		await this.customSymbolService.renameCategory(oldName, newName)
+		this.loadAndRenderCustomCategories()
 	}
 
 	/**
@@ -2460,50 +2190,14 @@ export class MainController {
 		newName = newName.trim()
 		if (!newName) return
 
-		const symTx = this.db.transaction("customSymbols", "readwrite")
-		const symStore = symTx.objectStore("customSymbols")
-		symStore.get(symbolId).onsuccess = (ev) => {
-			const sym = (ev.target as IDBRequest).result
-			if (!sym) return
-			const oldName = sym.displayName
-			const newId = "subcircuit-" + newName
-
-			sym.displayName = newName
-			sym.tikzName = newName
-			sym.id = newId
-			if (sym.subcircuitData) {
-				sym.subcircuitData.displayName = newName
-			}
-
-			symStore.delete(symbolId)
-			symStore.put(sym)
-			symTx.oncomplete = () => {
-				this._updateSymbolIdInCategories(symbolId, newId, oldName, newName)
-			}
-		}
-	}
-
-	/** Updates all category symbolIds after a subcircuit rename, then syncs canvas components. */
-	private _updateSymbolIdInCategories(oldId: string, newId: string, oldName: string, newName: string) {
-		const catTx = this.db.transaction("customCategories", "readwrite")
-		const catStore = catTx.objectStore("customCategories")
-		catStore.getAll().onsuccess = (ev) => {
-			const cats: { name: string; symbolIds: string[] }[] = (ev.target as IDBRequest).result || []
-			for (const cat of cats) {
-				const idx = cat.symbolIds.indexOf(oldId)
-				if (idx >= 0) {
-					cat.symbolIds[idx] = newId
-					catStore.put(cat)
-				}
-			}
-			// Sync canvas SubcircuitComponents
-			for (const comp of this.circuitComponents) {
-				if ((comp as any).displayName === oldName) {
-					(comp as any).displayName = newName
-				}
-			}
-			catTx.oncomplete = () => this.loadAndRenderCustomCategories()
-		}
+		const renamed = await this.customSymbolService.renameCustomSymbol(
+			symbolId,
+			newName,
+			this.customSymbols,
+			this.circuitComponents
+		)
+		if (!renamed) return
+		this.loadAndRenderCustomCategories()
 	}
 
 	/**
@@ -2512,70 +2206,22 @@ export class MainController {
 	 * Canvas components already placed are NOT removed.
 	 */
 	public async deleteCustomSymbol(symbolId: string) {
-		const catTx = this.db.transaction("customCategories", "readwrite")
-		const catStore = catTx.objectStore("customCategories")
-		catStore.getAll().onsuccess = (ev) => {
-			const cats: { name: string; symbolIds: string[] }[] = (ev.target as IDBRequest).result || []
-			for (const cat of cats) {
-				if (cat.symbolIds.includes(symbolId)) {
-					cat.symbolIds = cat.symbolIds.filter((id: string) => id !== symbolId)
-					catStore.put(cat)
-				}
-			}
-			catTx.oncomplete = () => {
-				const symTx = this.db.transaction("customSymbols", "readwrite")
-				symTx.objectStore("customSymbols").delete(symbolId).onsuccess = () => {
-					this.loadAndRenderCustomCategories()
-				}
-			}
-		}
+		await this.customSymbolService.deleteCustomSymbol(symbolId, this.customSymbols)
+		this.loadAndRenderCustomCategories()
 	}
 
-	public async addSymbolToCategory(categoryName: string, symbolId: string, customSymbolData?: any) {
-		if (customSymbolData && customSymbolData.subcircuitData && !customSymbolData.svgPreview) {
-			try {
-				const preview = await this.generateSubcircuitSvgPreview(customSymbolData.subcircuitData)
-				if (preview) {
-					customSymbolData.svgPreview = preview
-				}
-			} catch (e) {
-				console.error("Failed to generate preview during addSymbolToCategory:", e)
-			}
-		}
-
-		const transaction = this.db.transaction(["customCategories", "customSymbols"], "readwrite")
-		const catStore = transaction.objectStore("customCategories")
-		const symStore = transaction.objectStore("customSymbols")
-
-		if (customSymbolData) {
-			symStore.put(customSymbolData)
-		}
-
-		catStore.get(categoryName).onsuccess = (ev) => {
-			const cat = (ev.target as IDBRequest).result
-			if (cat) {
-				if (!cat.symbolIds.includes(symbolId)) {
-					cat.symbolIds.push(symbolId)
-					catStore.put(cat).onsuccess = () => {
-						this.loadAndRenderCustomCategories()
-					}
-				}
-			}
-		}
+	public async addSymbolToCategory(categoryName: string, symbolId: string, customSymbolData?: CustomSymbolRecord) {
+		await this.customSymbolService.addSymbolToCategory(categoryName, symbolId, customSymbolData)
+		this.loadAndRenderCustomCategories()
 	}
 
 	public async removeSymbolFromCategory(categoryName: string, symbolId: string) {
-		const transaction = this.db.transaction("customCategories", "readwrite")
-		const store = transaction.objectStore("customCategories")
-		store.get(categoryName).onsuccess = (ev) => {
-			const cat = (ev.target as IDBRequest).result
-			if (cat) {
-				cat.symbolIds = cat.symbolIds.filter((id: string) => id !== symbolId)
-				store.put(cat).onsuccess = () => {
-					this.loadAndRenderCustomCategories()
-				}
-			}
-		}
+		await this.customSymbolService.removeSymbolFromCategory(categoryName, symbolId)
+		this.loadAndRenderCustomCategories()
+	}
+
+	public async putCustomSymbolRecord(customSymbol: CustomSymbolRecord): Promise<void> {
+		await this.customSymbolService.putCustomSymbol(customSymbol)
 	}
 
 	public async createSubcircuitFromSelection() {
@@ -2658,13 +2304,6 @@ export class MainController {
 				return
 			}
 
-			let finalName = name
-			let suffix = 2
-			while (this.customSymbols.some(s => s.displayName === finalName)) {
-				finalName = `${name} (${suffix})`
-				suffix++
-			}
-
 			let categoryName = categorySelect.value
 			if (categoryName === "__NEW_CATEGORY__") {
 				categoryName = newCategoryInput.value.trim()
@@ -2693,20 +2332,9 @@ export class MainController {
 			group.visualization.remove()
 
 			// 建立 SubcircuitComponent
-			const sub = new SubcircuitComponent(finalName, children)
-			const subJson = sub.toJson()
-
-			const symbolId = "subcircuit-" + finalName
-			const customSymbolData = {
-				id: symbolId,
-				type: "subcircuit",
-				tikzName: finalName,
-				displayName: finalName,
-				isNodeSymbol: false,
-				subcircuitData: subJson
-			}
-
-			await this.addSymbolToCategory(categoryName, symbolId, customSymbolData)
+			const subJson = new SubcircuitComponent(name, children).toJson()
+			const customSymbolData = this.customSymbolService.buildSubcircuitRecord(name, subJson, this.customSymbols)
+			await this.addSymbolToCategory(categoryName, customSymbolData.id, customSymbolData)
 
 			Undo.addState()
 			bsModal.hide()
@@ -2722,136 +2350,7 @@ export class MainController {
 	}
 
 	private async generateSubcircuitSvgPreview(subcircuitData: any): Promise<string | null> {
-		if (!subcircuitData || !subcircuitData.components) return null
-
-		const tempComponents: CircuitComponent[] = []
-		const offscreenSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg")
-		offscreenSvg.setAttribute("style", "position: absolute; top: -9999px; left: -9999px; visibility: hidden; width: 500px; height: 500px;")
-		document.body.appendChild(offscreenSvg)
-
-		try {
-			for (const saveObj of subcircuitData.components) {
-				const comp = CircuitComponent.fromJson(saveObj)
-				if (comp) {
-					tempComponents.push(comp)
-					comp.update()
-				}
-			}
-
-			if (tempComponents.length === 0) {
-				document.body.removeChild(offscreenSvg)
-				return null
-			}
-
-			const defsMap = new Map<string, SVG.Element>()
-			const innerGroup = document.createElementNS("http://www.w3.org/2000/svg", "g")
-			offscreenSvg.appendChild(innerGroup)
-
-			for (const comp of tempComponents) {
-				const clonedNode = comp.toSVG(defsMap).node
-				innerGroup.appendChild(clonedNode)
-			}
-
-			// Inline all <use> elements so the final SVG is self-contained (no doc-level defs needed)
-			const uses = Array.from(innerGroup.querySelectorAll("use"))
-			for (const use of uses) {
-				const href = use.getAttribute("xlink:href") || use.getAttribute("href")
-				if (!href?.startsWith("#")) continue
-				const id = href.slice(1)
-				// Look in defsMap first (SVG.Element), then fall back to document
-				const symbolNode: Element | null = defsMap.has(id)
-					? (defsMap.get(id)!.node as Element)
-					: document.getElementById(id)
-				if (!symbolNode) continue
-
-				// Wrap symbol's children in a <g>, applying the <use>'s transform, position, scale and inherited colors
-				const g = document.createElementNS("http://www.w3.org/2000/svg", "g")
-				
-				let finalTransform = ""
-				const ux = parseFloat(use.getAttribute("x") || "0")
-				const uy = parseFloat(use.getAttribute("y") || "0")
-				if (ux !== 0 || uy !== 0) {
-					finalTransform += `translate(${ux}, ${uy}) `
-				}
-				const transform = use.getAttribute("transform")
-				if (transform) {
-					finalTransform += transform + " "
-				}
-				if (symbolNode.tagName.toLowerCase() === "symbol") {
-					const viewBoxStr = symbolNode.getAttribute("viewBox")
-					if (viewBoxStr) {
-						const parts = viewBoxStr.trim().split(/[\s,]+/)
-						if (parts.length === 4) {
-							const vx = parseFloat(parts[0])
-							const vy = parseFloat(parts[1])
-							const vw = parseFloat(parts[2])
-							const vh = parseFloat(parts[3])
-							
-							const uwAttr = use.getAttribute("width")
-							const uhAttr = use.getAttribute("height")
-							const uw = uwAttr ? parseFloat(uwAttr) : vw
-							const uh = uhAttr ? parseFloat(uhAttr) : vh
-							
-							const scaleX = uw / vw
-							const scaleY = uh / vh
-							
-							finalTransform += `scale(${scaleX}, ${scaleY}) translate(${-vx}, ${-vy}) `
-						}
-					}
-				}
-				if (finalTransform.trim()) {
-					g.setAttribute("transform", finalTransform.trim())
-				}
-
-				const cls = use.getAttribute("class")
-				if (cls) g.setAttribute("class", cls)
-
-				const stroke = use.getAttribute("stroke") || use.style.stroke
-				const fill = use.getAttribute("fill") || use.style.fill
-				const color = use.getAttribute("color") || use.style.color
-				if (stroke) g.setAttribute("stroke", stroke)
-				if (fill) g.setAttribute("fill", fill)
-				if (color) g.setAttribute("color", color)
-
-				// Symbol children (skip <title>)
-				const source = symbolNode.tagName.toLowerCase() === "symbol" ? symbolNode : symbolNode
-				for (const child of Array.from(source.childNodes)) {
-					if ((child as Element).tagName === "title") continue
-					g.appendChild(child.cloneNode(true))
-				}
-				use.parentNode?.replaceChild(g, use)
-			}
-
-			await new Promise((resolve) => requestAnimationFrame(resolve))
-			const bbox = innerGroup.getBBox()
-
-			if (bbox.width === 0 && bbox.height === 0) {
-				document.body.removeChild(offscreenSvg)
-				return null
-			}
-
-			const padding = 5
-			const finalSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg")
-			finalSvg.setAttribute("viewBox", `${bbox.x - padding} ${bbox.y - padding} ${bbox.width + padding * 2} ${bbox.height + padding * 2}`)
-			finalSvg.setAttribute("width", "48")
-			finalSvg.setAttribute("height", "48")
-			finalSvg.appendChild(innerGroup)
-
-			document.body.removeChild(offscreenSvg)
-			return new XMLSerializer().serializeToString(finalSvg)
-		} catch (err) {
-			console.error("Error generating subcircuit preview:", err)
-			if (offscreenSvg.parentNode) document.body.removeChild(offscreenSvg)
-			return null
-		} finally {
-			for (const comp of tempComponents) {
-				try {
-					this.removeComponent(comp)
-				} catch (e) {
-					console.error("Error cleaning up temporary component", e)
-				}
-			}
-		}
+		return this.subcircuitPreviewService.generatePreview(subcircuitData)
 	}
 
 	public getCustomSubcircuitsTikzset(): string {

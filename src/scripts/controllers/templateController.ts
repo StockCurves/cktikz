@@ -1,6 +1,9 @@
-import { TikzEditorController } from "./tikzEditorController"
 import { Modal } from "bootstrap"
 import { MainController } from "./mainController"
+import { TikzEditorController } from "./tikzEditorController"
+import { TemplateApplicationService } from "../services/templateApplicationService"
+import { TemplateFileService } from "../services/templateFileService"
+import { TemplateDirectory, TemplateListViewModel } from "../services/templateTypes"
 
 export class TemplateController {
 	private static _instance: TemplateController
@@ -13,15 +16,24 @@ export class TemplateController {
 
 	private templateDropdownBtn: HTMLButtonElement | null = null
 	private templateDropdownMenu: HTMLUListElement | null = null
-	private saveServerModal: Modal
+	private saveServerModal: Modal | null = null
 	private saveServerFilenameInput: HTMLInputElement
 	private saveServerConfirmButton: HTMLButtonElement
 	private workContextMenu: HTMLDivElement | null = null
 	private deleteWorkButton: HTMLButtonElement | null = null
 	private contextMenuTargetFile: string | null = null
-
-	public currentDir: string = "template"
-	public currentName: string = "rc-lowpass.tex"
+	private readonly applicationService = new TemplateApplicationService(
+		new TemplateFileService(),
+		{
+			getCode: () => TikzEditorController.instance.getCode(),
+			setCode: (code) => TikzEditorController.instance.setCode(code),
+			applyEditorText: () => TikzEditorController.instance.applyEditorText(),
+		},
+		{
+			alert: (title, message) => MainController.instance.openAlert(title, message),
+			confirm: (title, message) => MainController.instance.openConfirm(title, message),
+		}
+	)
 
 	private constructor() {
 		this.templateDropdownBtn = document.getElementById("template-dropdown-btn") as HTMLButtonElement
@@ -39,27 +51,31 @@ export class TemplateController {
 		this.initEvents()
 	}
 
-	private getApiBase(): string {
-		if (["localhost", "127.0.0.1"].includes(window.location.hostname)) {
-			return "http://localhost:3001"
+	public async initialize() {
+		if (!this.templateDropdownMenu) return
+		try {
+			const viewModel = await this.applicationService.bootstrapDefaultFile()
+			this.renderDropdown(viewModel)
+		} catch (err) {
+			console.error("Error loading templates:", err)
 		}
-		return ""
+	}
+
+	public openSaveModal() {
+		const baseName = this.applicationService.getState().currentName.replace(/\.tex$/, "")
+		this.saveServerFilenameInput.value = baseName === "rc-lowpass" ? "my-circuit" : baseName
+		this.saveServerModal?.show()
 	}
 
 	private initEvents() {
-		if (this.saveServerConfirmButton) {
-			this.saveServerConfirmButton.addEventListener("click", () => {
-				this.confirmSaveToServer()
-			})
-		}
+		this.saveServerConfirmButton?.addEventListener("click", () => {
+			this.confirmSaveToServer()
+		})
 
-		if (this.deleteWorkButton) {
-			this.deleteWorkButton.addEventListener("click", () => {
-				this.confirmDeleteWorkFile()
-			})
-		}
+		this.deleteWorkButton?.addEventListener("click", () => {
+			this.confirmDeleteWorkFile()
+		})
 
-		// Hide context menu on left click anywhere on document
 		document.addEventListener("click", () => {
 			if (this.workContextMenu) {
 				this.workContextMenu.style.display = "none"
@@ -67,168 +83,79 @@ export class TemplateController {
 		})
 	}
 
-	public async fetchFiles() {
+	private renderDropdown(viewModel: TemplateListViewModel) {
 		if (!this.templateDropdownMenu) return
-		try {
-			const res = await fetch(`${this.getApiBase()}/api/files`)
-			const data = await res.json()
+		this.templateDropdownMenu.innerHTML = ""
 
-			this.templateDropdownMenu.innerHTML = ""
+		const appendHeader = (text: string) => {
+			const header = document.createElement("li")
+			header.innerHTML = `<span class="dropdown-header fw-bold text-uppercase fs-7" style="color: var(--text-muted, #888);">${text}</span>`
+			this.templateDropdownMenu!.appendChild(header)
+		}
 
-			// Templates group header
-			const headerTemplates = document.createElement("li")
-			headerTemplates.innerHTML = `<span class="dropdown-header fw-bold text-uppercase fs-7" style="color: var(--text-muted, #888);">Templates (Read-Only)</span>`
-			this.templateDropdownMenu.appendChild(headerTemplates)
-
-			if (data.templates) {
-				data.templates.forEach((t: string) => {
-					const li = document.createElement("li")
-					const a = document.createElement("a")
-					const baseName = t.replace(/\.tex$/, "")
-					a.className = "dropdown-item py-1"
-					a.href = "#"
-					a.textContent = baseName
-					a.style.color = "var(--text-main)"
-					a.addEventListener("click", (e) => {
-						e.preventDefault()
-						this.loadRemoteFile("template", t)
-					})
-					li.appendChild(a)
-					this.templateDropdownMenu!.appendChild(li)
+		const appendEntry = (dir: TemplateDirectory, name: string, withContextMenu = false) => {
+			const li = document.createElement("li")
+			const link = document.createElement("a")
+			link.className = "dropdown-item py-1"
+			link.href = "#"
+			link.textContent = name.replace(/\.tex$/, "")
+			link.style.color = "var(--text-main)"
+			link.addEventListener("click", async (e) => {
+				e.preventDefault()
+				await this.handleFileOpen(dir, name)
+			})
+			if (withContextMenu) {
+				link.addEventListener("contextmenu", (e) => {
+					e.preventDefault()
+					e.stopPropagation()
+					this.showContextMenu(e, name)
 				})
 			}
+			li.appendChild(link)
+			this.templateDropdownMenu!.appendChild(li)
+		}
 
-			// Divider
-			const divider = document.createElement("li")
-			divider.innerHTML = `<hr class="dropdown-divider" style="border-color: var(--border-color);">`
-			this.templateDropdownMenu.appendChild(divider)
+		appendHeader("Templates (Read-Only)")
+		viewModel.templates.forEach((name) => appendEntry("template", name))
 
-			// Works group header
-			const headerWorks = document.createElement("li")
-			headerWorks.innerHTML = `<span class="dropdown-header fw-bold text-uppercase fs-7" style="color: var(--text-muted, #888);">Work (Editable)</span>`
-			this.templateDropdownMenu.appendChild(headerWorks)
+		const divider = document.createElement("li")
+		divider.innerHTML = `<hr class="dropdown-divider" style="border-color: var(--border-color);">`
+		this.templateDropdownMenu.appendChild(divider)
 
-			if (data.works && data.works.length > 0) {
-				data.works.forEach((w: string) => {
-					const li = document.createElement("li")
-					const a = document.createElement("a")
-					const baseName = w.replace(/\.tex$/, "")
-					a.className = "dropdown-item py-1"
-					a.href = "#"
-					a.textContent = baseName
-					a.style.color = "var(--text-main)"
-					a.addEventListener("click", (e) => {
-						e.preventDefault()
-						this.loadRemoteFile("work", w)
-					})
-					// Right click (contextmenu) logic
-					a.addEventListener("contextmenu", (e) => {
-						e.preventDefault()
-						e.stopPropagation()
-						this.showContextMenu(e, w)
-					})
-					li.appendChild(a)
-					this.templateDropdownMenu!.appendChild(li)
-				})
-			} else {
-				const li = document.createElement("li")
-				li.innerHTML = `<span class="dropdown-item-text text-muted py-1 small italic">No saved works</span>`
-				this.templateDropdownMenu.appendChild(li)
-			}
+		appendHeader("Work (Editable)")
+		if (viewModel.hasWorks) {
+			viewModel.works.forEach((name) => appendEntry("work", name, true))
+		} else {
+			const li = document.createElement("li")
+			li.innerHTML = `<span class="dropdown-item-text text-muted py-1 small italic">No saved works</span>`
+			this.templateDropdownMenu.appendChild(li)
+		}
 
-			// Update the dropdown button text
-			this.updateDropdownButtonText()
-		} catch (err) {
-			console.error("Failed to fetch files:", err)
+		this.updateDropdownButtonText(viewModel.selectedDisplayName)
+	}
+
+	private updateDropdownButtonText(selectedDisplayName: string) {
+		if (!this.templateDropdownBtn) return
+		const span = this.templateDropdownBtn.querySelector("span")
+		if (span) {
+			span.textContent = selectedDisplayName
+		} else {
+			this.templateDropdownBtn.textContent = selectedDisplayName
 		}
 	}
 
-	private updateDropdownButtonText() {
-		if (this.templateDropdownBtn && this.currentName) {
-			const baseName = this.currentName.replace(/\.tex$/, "")
-			const span = this.templateDropdownBtn.querySelector("span")
-			if (span) {
-				span.textContent = baseName
-			} else {
-				this.templateDropdownBtn.textContent = baseName
-			}
-		}
-	}
-
-	public async loadRemoteFile(dir: string, name: string) {
-		try {
-			const res = await fetch(`${this.getApiBase()}/api/file?dir=${dir}&name=${encodeURIComponent(name)}`)
-			if (!res.ok) {
-				throw new Error(await res.text())
-			}
-			const code = await res.text()
-
-			this.currentDir = dir
-			this.currentName = name
-
-			// Sync code into editor text area
-			TikzEditorController.instance.setCode(code)
-			// Apply loaded code to canvas
-			TikzEditorController.instance.applyEditorText()
-
-			// Sync dropdown selection text
-			this.updateDropdownButtonText()
-		} catch (err: any) {
-			console.error("Failed to load file:", err)
-			await MainController.instance.openAlert("Error loading file", err.message)
-		}
-	}
-
-	public openSaveModal() {
-		if (this.saveServerFilenameInput) {
-			const baseName = this.currentName.replace(/\.tex$/, "")
-			this.saveServerFilenameInput.value = baseName === "rc-lowpass" ? "my-circuit" : baseName
-		}
-		if (this.saveServerModal) {
-			this.saveServerModal.show()
-		}
+	private async handleFileOpen(dir: TemplateDirectory, name: string) {
+		const viewModel = await this.applicationService.openFile(dir, name)
+		this.renderDropdown(viewModel)
 	}
 
 	private async confirmSaveToServer() {
-		let filename = this.saveServerFilenameInput.value.trim()
-		if (!filename) {
-			await MainController.instance.openAlert("Save File", "Please enter a filename.")
-			return
-		}
-		if (/[\\/:*?"<>|]/.test(filename)) {
-			await MainController.instance.openAlert("Save File", "Invalid filename characters.")
-			return
-		}
-		const safeFilename = filename.endsWith(".tex") ? filename : `${filename}.tex`
-		const content = TikzEditorController.instance.getCode()
-
 		try {
-			const res = await fetch(`${this.getApiBase()}/api/save`, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ dir: "work", name: safeFilename, content }),
-			})
-
-			const data = await res.json()
-			if (!res.ok || data.error) {
-				throw new Error(data.error || "Failed to save file.")
-			}
-
-			this.currentDir = "work"
-			this.currentName = safeFilename
-
-			if (this.saveServerModal) {
-				this.saveServerModal.hide()
-			}
-
-			await MainController.instance.openAlert("Save Complete", `Successfully saved to work/${safeFilename}`)
-
-			// Refresh file list and reload
-			await this.fetchFiles()
-			await this.loadRemoteFile("work", safeFilename)
-		} catch (err: any) {
+			const viewModel = await this.applicationService.saveWork(this.saveServerFilenameInput.value)
+			this.saveServerModal?.hide()
+			this.renderDropdown(viewModel)
+		} catch (err) {
 			console.error("Failed to save file:", err)
-			await MainController.instance.openAlert("Save Error", err.message)
 		}
 	}
 
@@ -237,8 +164,7 @@ export class TemplateController {
 
 		this.contextMenuTargetFile = filename
 		this.workContextMenu.style.display = "block"
-		
-		// Prevent context menu from overflowing the screen boundaries
+
 		const rect = this.workContextMenu.getBoundingClientRect()
 		let left = e.pageX
 		let top = e.pageY
@@ -259,36 +185,11 @@ export class TemplateController {
 
 	private async confirmDeleteWorkFile() {
 		if (!this.contextMenuTargetFile) return
-		const filename = this.contextMenuTargetFile
-		const baseName = filename.replace(/\.tex$/, "")
-
-		const confirmDelete = await MainController.instance.openConfirm("Delete Work", `Are you sure you want to delete "${baseName}"?`)
-		if (!confirmDelete) return
-
 		try {
-			const res = await fetch(`${this.getApiBase()}/api/delete`, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ dir: "work", name: filename }),
-			})
-
-			const data = await res.json()
-			if (!res.ok || data.error) {
-				throw new Error(data.error || "Failed to delete file.")
-			}
-
-			// If the currently active file is deleted, load the default template
-			if (this.currentDir === "work" && this.currentName === filename) {
-				await this.loadRemoteFile("template", "rc-lowpass.tex")
-			}
-
-			await MainController.instance.openAlert("Delete Complete", `Successfully deleted ${baseName}`)
-
-			// Refresh the file list
-			await this.fetchFiles()
-		} catch (err: any) {
+			const viewModel = await this.applicationService.deleteWork(this.contextMenuTargetFile)
+			this.renderDropdown(viewModel)
+		} catch (err) {
 			console.error("Failed to delete file:", err)
-			await MainController.instance.openAlert("Delete Error", err.message)
 		} finally {
 			this.contextMenuTargetFile = null
 		}

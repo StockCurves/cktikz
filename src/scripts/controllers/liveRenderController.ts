@@ -1,4 +1,5 @@
 import { TikzEditorController } from "../internal"
+import { LatexRenderService, prepareLatexSource } from "../services/latexRenderService"
 
 export class LiveRenderController {
 	private static _instance: LiveRenderController
@@ -32,6 +33,7 @@ export class LiveRenderController {
 	private renderGeneration = 0
 	private debounceTimer: any = null
 	private lastRenderedCode = ""
+	private readonly latexRenderService = new LatexRenderService()
 
 	private constructor() {}
 
@@ -89,13 +91,6 @@ export class LiveRenderController {
 				this.centerViewDeferred()
 			}
 		}
-	}
-
-	private getApiBase(): string {
-		if (["localhost", "127.0.0.1"].includes(window.location.hostname)) {
-			return "http://localhost:3001"
-		}
-		return ""
 	}
 
 	private ensureViewport() {
@@ -244,85 +239,6 @@ export class LiveRenderController {
 		this.debounceTimer = setTimeout(() => this.renderTikz(), 1200)
 	}
 
-	private prepareLatexSource(raw: string): { bodyCode: string; libraries: string[] } {
-		let code = raw
-		// Unwrap full document if pasted
-		const docMatch = code.match(/\\begin\{document\}([\s\S]*)\\end\{document\}/)
-		if (docMatch) code = docMatch[1].trim()
-		
-		code = code.replace(/\\documentclass[^{]*\{[^}]*\}/g, "")
-		code = code.replace(/\\usepackage[^{]*\{[^}]*\}/g, "")
-		// Strip comments first (including Chinese/unicode in comments)
-		code = code.replace(/%.*$/gm, "")
-		// Strip remaining non-ASCII chars
-		code = code.replace(/[^\x00-\x7F]/g, "")
-		// Remove font= size modifiers (causes errors in WASM TeX)
-		code = code.replace(/,?\s*font=\\[a-zA-Z]+/g, "")
-		code = code.replace(/^\s*\n/gm, "").trim()
-
-		// Extract any custom \usetikzlibrary
-		const libraries: string[] = ["calc"] // 'calc' is usually a safe default
-		const libMatches = code.match(/\\usetikzlibrary\{([^}]+)\}/g)
-		if (libMatches) {
-			libMatches.forEach((m) => {
-				const innerMatch = m.match(/\\usetikzlibrary\{([^}]+)\}/)
-				if (innerMatch && innerMatch[1]) {
-					const libs = innerMatch[1].split(",")
-					libs.forEach((l) => {
-						const trimmed = l.trim()
-						if (trimmed && !libraries.includes(trimmed)) {
-							libraries.push(trimmed)
-						}
-					})
-				}
-			})
-			// Remove \usetikzlibrary from bodyCode since it will go into preamble
-			code = code.replace(/\\usetikzlibrary\{[^}]+\}/g, "")
-		}
-
-		return { bodyCode: code, libraries }
-	}
-
-	private renderViaQuickLaTeX(bodyCode: string, libraries: string[]): Promise<HTMLImageElement> {
-		const libsStr = libraries.join(",")
-		const preamble = `\\usepackage[american]{circuitikz}\n\\usepackage{graphicx}\n\\usetikzlibrary{${libsStr}}`
-
-		// Build form body manually with encodeURIComponent to match QuickLaTeX expectations
-		const params = [
-			"formula=" + encodeURIComponent(bodyCode),
-			"fsize=" + encodeURIComponent("20px"),
-			"fcolor=000000",
-			"mode=0",
-			"out=1",
-			"remhost=" + encodeURIComponent("quicklatex.com"),
-			"preamble=" + encodeURIComponent(preamble),
-			"errors=1",
-		].join("&")
-
-		return fetch(`${this.getApiBase()}/api/latex`, {
-			method: "POST",
-			headers: { "Content-Type": "application/x-www-form-urlencoded" },
-			body: params,
-		})
-			.then((r) => r.text())
-			.then((text) => {
-				const lines = text.trim().split("\n")
-				const status = parseInt(lines[0], 10)
-				if (status !== 0) {
-					const errMsg = lines.slice(1).join("\n")
-					throw new Error("QuickLaTeX: " + errMsg)
-				}
-				let imgUrl = lines[1].trim().split(/\s+/)[0]
-				if (imgUrl.endsWith(".png")) {
-					imgUrl = imgUrl.substring(0, imgUrl.length - 4) + ".svg"
-				}
-				const img = document.createElement("img")
-				img.src = imgUrl
-				img.alt = "CircuiTikZ Render"
-				return img
-			})
-	}
-
 	private renderViaTikZJax(bodyCode: string, libraries: string[]): Promise<HTMLIFrameElement> {
 		// Do not include \usetikzlibrary in local TikZJax compilation to avoid WASM unreachable crashes.
 		// Standard circuitikz macros are loaded by \usepackage{circuitikz} without extra libraries.
@@ -391,11 +307,11 @@ export class LiveRenderController {
 		const prevErr = document.getElementById("render-error-overlay")
 		if (prevErr) prevErr.remove()
 
-		const { bodyCode, libraries } = this.prepareLatexSource(currentCode)
+		const { bodyCode, libraries } = prepareLatexSource(currentCode)
 
 		// -- Attempt 1: QuickLaTeX API --
 		try {
-			const img = await this.renderViaQuickLaTeX(bodyCode, libraries)
+			const img = await this.latexRenderService.renderViaQuickLaTeX(bodyCode, libraries)
 			if (thisGen !== this.renderGeneration) return
 
 			this.lastRenderedCode = currentCode

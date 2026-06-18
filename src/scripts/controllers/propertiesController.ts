@@ -1,9 +1,7 @@
 import {
-	AlignmentMode,
 	ButtonGridProperty,
 	CanvasController,
 	CircuitComponent,
-	DistributionMode,
 	EditableProperty,
 	EnvironmentVariableController,
 	GroupComponent,
@@ -12,52 +10,14 @@ import {
 	SelectionController,
 	Undo,
 } from "../internal"
+import { PropertiesApplicationService } from "../services/propertiesApplicationService"
+import { PropertiesPanelState, PropertyActionSection } from "../services/propertiesTypes"
 
 export type FormEntry = {
 	originalObject: object
 	propertyName: string
 	inputType: string
 	currentValue: any
-}
-
-export enum PropertyCategories {
-	manipulation,
-	ordering,
-	options,
-	fill,
-	stroke,
-	label,
-	voltage,
-	current,
-	text,
-	info,
-}
-
-export class PropertiesCollection extends Map<PropertyCategories, EditableProperty<any>[]> {
-	public add(category: PropertyCategories, property: EditableProperty<any>) {
-		if (this.has(category)) {
-			this.get(category).push(property)
-		} else {
-			this.set(category, [property])
-		}
-	}
-
-	public sorted(): EditableProperty<any>[] {
-		let properties: EditableProperty<any>[] = []
-
-		let key = Object.keys(PropertyCategories)[0]
-		PropertyCategories[key]
-		for (const element in PropertyCategories) {
-			if (isNaN(Number(element))) {
-				//@ts-ignore
-				let category: PropertyCategories = PropertyCategories[element]
-				if (this.has(category)) {
-					properties.push(...this.get(category))
-				}
-			}
-		}
-		return properties
-	}
 }
 
 export class PropertyController {
@@ -72,287 +32,150 @@ export class PropertyController {
 	private viewProperties: HTMLDivElement
 	private propertiesEntries: HTMLDivElement
 	private propertiesTitle: HTMLElement
-
-	private multies: EditableProperty<any>[] = []
+	private readonly minorSlider: HTMLInputElement
+	private readonly majorSlider: HTMLInputElement
+	private readonly majorLabel: HTMLElement
+	private readonly minorLabel: HTMLElement
+	private readonly gridInfo: HTMLElement
+	private transientProperties: EditableProperty<any>[] = []
+	private readonly applicationService = new PropertiesApplicationService(
+		{
+			getSelectedComponents: () => SelectionController.instance.currentlySelectedComponents,
+			rotateSelection: (angle) => SelectionController.instance.rotateSelection(angle),
+			flipSelection: (horizontal) => SelectionController.instance.flipSelection(horizontal),
+			alignSelection: (mode, horizontal) => SelectionController.instance.alignSelection(mode, horizontal),
+			distributeSelection: (mode, horizontal) => SelectionController.instance.distributeSelection(mode, horizontal),
+		},
+		{
+			resetView: () => CanvasController.instance.resetView(),
+			fitView: () => CanvasController.instance.fitView(),
+			changeGrid: (majorSizecm, majorSubdivisions) =>
+				CanvasController.instance.changeGrid(majorSizecm, majorSubdivisions),
+			componentsToForeground: (components: CircuitComponent[]) =>
+				CanvasController.instance.componentsToForeground(components),
+			componentsToBackground: (components: CircuitComponent[]) =>
+				CanvasController.instance.componentsToBackground(components),
+			moveComponentsForward: (components: CircuitComponent[]) =>
+				CanvasController.instance.moveComponentsForward(components),
+			moveComponentsBackward: (components: CircuitComponent[]) =>
+				CanvasController.instance.moveComponentsBackward(components),
+			getGridSettings: () => ({
+				majorGridSizecm: CanvasController.instance.majorGridSizecm,
+				majorGridSubdivisions: CanvasController.instance.majorGridSubdivisions,
+			}),
+		},
+		{
+			groupSelection: (components: CircuitComponent[]) => GroupComponent.group(components),
+		},
+		{
+			addState: () => Undo.addState(),
+		},
+		{
+			getElement: () => EnvironmentVariableController.instance.getHTML(),
+		},
+		{
+			refresh: () => MainController.instance.updateTooltips(),
+		}
+	)
 
 	private constructor() {
 		this.propertiesTitle = document.getElementById("propertiesTitle") as HTMLElement
 		this.viewProperties = document.getElementById("view-properties") as HTMLDivElement
-		this.viewProperties.firstElementChild.prepend(MainController.instance.designName.getHTMLElement())
+		this.viewProperties.firstElementChild!.prepend(MainController.instance.designName.getHTMLElement())
 		this.propertiesEntries = document.getElementById("propertiesEntries") as HTMLDivElement
-		;(document.getElementById("resetViewButton") as HTMLButtonElement).addEventListener("click", (ev) => {
-			CanvasController.instance.resetView()
+		this.minorSlider = document.getElementById("minorSliderInput") as HTMLInputElement
+		this.majorSlider = document.getElementById("majorSliderInput") as HTMLInputElement
+		this.majorLabel = document.getElementById("majorLabel") as HTMLElement
+		this.minorLabel = document.getElementById("minorLabel") as HTMLElement
+		this.gridInfo = document.getElementById("gridInfo") as HTMLElement
+
+		;(document.getElementById("resetViewButton") as HTMLButtonElement).addEventListener("click", () => {
+			this.applicationService.runSelectionAction("resetView")
 		})
-		;(document.getElementById("fitViewButton") as HTMLButtonElement).addEventListener("click", (ev) => {
-			CanvasController.instance.fitView()
+		;(document.getElementById("fitViewButton") as HTMLButtonElement).addEventListener("click", () => {
+			this.applicationService.runSelectionAction("fitView")
+		})
+
+		this.minorSlider.addEventListener("input", () => {
+			const majorSizecm = CanvasController.instance.majorGridSizecm
+			this.renderGridState(this.applicationService.changeGrid(majorSizecm, Number.parseFloat(this.minorSlider.value)))
+		})
+
+		this.majorSlider.addEventListener("input", () => {
+			const majorSubdivisions = CanvasController.instance.majorGridSubdivisions
+			this.renderGridState(this.applicationService.changeGrid(Number.parseFloat(this.majorSlider.value), majorSubdivisions))
 		})
 	}
 
-	update() {
-		let components = SelectionController.instance.currentlySelectedComponents
-		this.clearForm()
-
-		if (components.length > 1) {
-			this.setMultiForm(components)
-		} else if (components.length === 1) {
-			this.setForm(components[0])
-		} else {
-			this.setFormView()
-		}
-
-		MainController.instance.updateTooltips()
-	}
-
-	private setMultiForm(components: CircuitComponent[]) {
-		this.propertiesEntries.classList.remove("d-none")
-		this.propertiesTitle.innerText = "Selection"
-
-		let rows: HTMLElement[] = []
-		let positioning = new ButtonGridProperty(
-			2,
-			[
-				["Rotate 90° CW", "rotate_right"],
-				["Rotate 90° CCW", "rotate_left"],
-				["Rotate 45° CW", "rotate_right"],
-				["Rotate 45° CCW", "rotate_left"],
-				["Flip vertically", ["flip", "rotateText"]],
-				["Flip horizontally", "flip"],
-			],
-			[
-				(ev) => {
-					SelectionController.instance.rotateSelection(-90)
-					Undo.addState()
-				},
-				(ev) => {
-					SelectionController.instance.rotateSelection(90)
-					Undo.addState()
-				},
-				(ev) => {
-					SelectionController.instance.rotateSelection(-45)
-					Undo.addState()
-				},
-				(ev) => {
-					SelectionController.instance.rotateSelection(45)
-					Undo.addState()
-				},
-				(ev) => {
-					SelectionController.instance.flipSelection(true)
-					Undo.addState()
-				},
-				(ev) => {
-					SelectionController.instance.flipSelection(false)
-					Undo.addState()
-				},
-			],
-			false,
-			[
-				"Rotate the components 90 degrees clockwise",
-				"Rotate the components 90 degrees counter clockwise",
-				"Rotate the components 45 degrees clockwise",
-				"Rotate the components 45 degrees counter clockwise",
-				"Flip the components around its x-axis",
-				"Flip the components around its y-axis",
-			]
-		)
-		rows.push(positioning.buildHTML())
-
-		rows.push(new SectionHeaderProperty("Ordering").buildHTML())
-		let ordering = new ButtonGridProperty(
-			2,
-			[
-				["Foreground", ""],
-				["Background", ""],
-				["Forward", ""],
-				["Backward", ""],
-			],
-			[
-				(ev) =>
-					CanvasController.instance.componentsToForeground(
-						SelectionController.instance.currentlySelectedComponents
-					),
-				(ev) =>
-					CanvasController.instance.componentsToBackground(
-						SelectionController.instance.currentlySelectedComponents
-					),
-				(ev) =>
-					CanvasController.instance.moveComponentsForward(
-						SelectionController.instance.currentlySelectedComponents
-					),
-				(ev) =>
-					CanvasController.instance.moveComponentsBackward(
-						SelectionController.instance.currentlySelectedComponents
-					),
-			],
-			false,
-			[
-				"Bring the components to the foreground",
-				"Move the components to the background",
-				"Move the components one step towards the foreground",
-				"Move the components one step towards the background",
-			]
-		)
-		rows.push(ordering.buildHTML())
-
-		rows.push(new SectionHeaderProperty("Grouping").buildHTML())
-		let grouping = new ButtonGridProperty(
-			1,
-			[["Group", ""]],
-			[(ev) => GroupComponent.group(SelectionController.instance.currentlySelectedComponents)]
-		)
-		rows.push(grouping.buildHTML())
-
-		rows.push(new SectionHeaderProperty("Align").buildHTML())
-		let alignment = new ButtonGridProperty(
-			3,
-			[
-				["", "align_horizontal_left"],
-				["", "align_horizontal_center"],
-				["", "align_horizontal_right"],
-				["", "align_vertical_top"],
-				["", "align_vertical_center"],
-				["", "align_vertical_bottom"],
-			],
-			[
-				(ev) => SelectionController.instance.alignSelection(AlignmentMode.START, true),
-				(ev) => SelectionController.instance.alignSelection(AlignmentMode.CENTER, true),
-				(ev) => SelectionController.instance.alignSelection(AlignmentMode.END, true),
-				(ev) => SelectionController.instance.alignSelection(AlignmentMode.START, false),
-				(ev) => SelectionController.instance.alignSelection(AlignmentMode.CENTER, false),
-				(ev) => SelectionController.instance.alignSelection(AlignmentMode.END, false),
-			]
-		)
-		rows.push(alignment.buildHTML())
-
-		rows.push(new SectionHeaderProperty("Distribute").buildHTML())
-		let distribute = new ButtonGridProperty(
-			2,
-			[
-				["Center", "horizontal_distribute"],
-				["Spacing", "align_justify_space_even"],
-				["Center", "vertical_distribute"],
-				["Spacing", "align_space_even"],
-			],
-			[
-				(ev) => SelectionController.instance.distributeSelection(DistributionMode.CENTER, true),
-				(ev) => SelectionController.instance.distributeSelection(DistributionMode.SPACE, true),
-				(ev) => SelectionController.instance.distributeSelection(DistributionMode.CENTER, false),
-				(ev) => SelectionController.instance.distributeSelection(DistributionMode.SPACE, false),
-			]
-		)
-		rows.push(distribute.buildHTML())
-
-		this.propertiesEntries.append(...rows)
-
-		const overlappingProperties: PropertiesCollection = new PropertiesCollection()
-		this.multies = []
-
-		let key = Object.keys(PropertyCategories)[0]
-		PropertyCategories[key]
-		// repeat overlap detection for all possible categories
-		for (const element in PropertyCategories) {
-			if (!isNaN(Number(element))) {
-				continue
-			}
-			//@ts-ignore
-			let category: PropertyCategories = PropertyCategories[element]
-			const categoryMap: Map<string, EditableProperty<any>[]> = new Map()
-
-			// in each category, loop over all components
-			for (const component of components) {
-				const properties = component.properties.get(category)
-				if (properties == undefined) {
-					continue
-				}
-				// keep track of all properties of a given id
-				for (const property of properties) {
-					if (property.id == "") {
-						//skip empty ids
-						continue
-					}
-					if (categoryMap.has(property.id)) {
-						categoryMap.get(property.id).push(property)
-					} else {
-						categoryMap.set(property.id, [property])
-					}
-				}
-			}
-			const relevantProperties: EditableProperty<any>[] = []
-			// remove all properties, which are not present in every component, otherwise add properties
-			for (const id of categoryMap.keys()) {
-				const properties = categoryMap.get(id)
-				if (properties.length < components.length) {
-					categoryMap.set(id, [])
-				} else {
-					// get the multi edit version and save for housekeeping
-					const multi = properties[0].getMultiEditVersion(properties)
-
-					this.multies.push(multi)
-
-					relevantProperties.push(multi)
-				}
-			}
-			overlappingProperties.set(category, relevantProperties)
-		}
-		this.propertiesEntries.append(...overlappingProperties.sorted().map((property) => property.getHTMLElement()))
-	}
-
-	private setForm(component: CircuitComponent) {
-		this.propertiesEntries.classList.remove("d-none")
-		this.propertiesTitle.innerText = component.displayName
-		this.propertiesEntries.append(...component.properties.sorted().map((property) => property.getHTMLElement()))
-	}
-
-	private setFormView() {
-		this.viewProperties.classList.remove("d-none")
-		this.propertiesTitle.innerText = "General settings"
-
-		let minorSlider = document.getElementById("minorSliderInput") as HTMLInputElement
-		minorSlider.value = CanvasController.instance.majorGridSubdivisions.toString()
-
-		let majorSlider = document.getElementById("majorSliderInput") as HTMLInputElement
-		majorSlider.value = CanvasController.instance.majorGridSizecm.toString()
-
-		minorSlider.addEventListener("input", (ev) => {
-			this.changeGrid(CanvasController.instance.majorGridSizecm, Number.parseFloat(minorSlider.value))
-		})
-
-		majorSlider.addEventListener("input", (ev) => {
-			this.changeGrid(Number.parseFloat(majorSlider.value), CanvasController.instance.majorGridSubdivisions)
-		})
-
-		this.changeGrid(CanvasController.instance.majorGridSizecm, CanvasController.instance.majorGridSubdivisions)
-
-		if (!document.getElementById("envVarView")) {
-			document.getElementById("view-properties").appendChild(EnvironmentVariableController.instance.getHTML())
-		}
+	public update() {
+		const panelState = this.applicationService.buildPanelState()
+		this.renderPanelState(panelState)
+		this.applicationService.refreshTooltips()
 	}
 
 	public setSliderValues(majorSizecm: number, majorSubdivisions: number) {
-		let minorSlider = document.getElementById("minorSliderInput") as HTMLInputElement
-		minorSlider.value = majorSubdivisions.toString()
-		let majorSlider = document.getElementById("majorSliderInput") as HTMLInputElement
-		majorSlider.value = majorSizecm.toString()
-		this.changeGrid(majorSizecm, majorSubdivisions)
+		this.renderGridState(this.applicationService.setSliderValues(majorSizecm, majorSubdivisions))
 	}
 
-	private changeGrid(majorSizecm: number, majorSubdivisions: number) {
-		CanvasController.instance.changeGrid(majorSizecm, majorSubdivisions)
+	private renderPanelState(panelState: PropertiesPanelState) {
+		this.clearForm()
 
-		let majorLabel = document.getElementById("majorLabel")
-		majorLabel.innerText = majorSizecm + " cm"
+		this.propertiesTitle.innerText = panelState.title
+		this.viewProperties.classList.toggle("d-none", !panelState.showViewSettings)
+		this.propertiesEntries.classList.toggle("d-none", !panelState.showPropertyEntries)
 
-		let minorLabel = document.getElementById("minorLabel")
-		minorLabel.innerText = majorSubdivisions.toString()
+		this.renderGridState(panelState)
 
-		let gridInfo = document.getElementById("gridInfo")
-		gridInfo.innerText =
-			(majorSizecm / majorSubdivisions).toLocaleString(undefined, { maximumFractionDigits: 2 }) + " cm"
+		if (panelState.environmentViewRequired) {
+			const environmentView = this.applicationService.getEnvironmentView()
+			if (!document.getElementById("envVarView")) {
+				this.viewProperties.appendChild(environmentView)
+			}
+		}
+
+		this.transientProperties.push(...panelState.transientProperties)
+
+		if (panelState.showPropertyEntries) {
+			for (const section of panelState.actionSections) {
+				this.renderActionSection(section)
+			}
+			this.propertiesEntries.append(...panelState.properties.map((property) => property.getHTMLElement()))
+		}
+	}
+
+	private renderActionSection(section: PropertyActionSection) {
+		const header = new SectionHeaderProperty(section.title)
+		this.transientProperties.push(header)
+		this.propertiesEntries.appendChild(header.getHTMLElement())
+
+		const grid = new ButtonGridProperty(
+			section.columns,
+			section.items.map((item) => [item.label, item.icon]),
+			section.items.map((item) => () => this.applicationService.runSelectionAction(item.id)),
+			false,
+			section.items.map((item) => item.tooltip ?? "")
+		)
+		this.transientProperties.push(grid)
+		this.propertiesEntries.appendChild(grid.getHTMLElement())
+	}
+
+	private renderGridState(state: {
+		majorGridSizecm: number
+		majorGridSubdivisions: number
+		minorGridDisplay: string
+	}) {
+		this.minorSlider.value = state.majorGridSubdivisions.toString()
+		this.majorSlider.value = state.majorGridSizecm.toString()
+		this.majorLabel.innerText = state.majorGridSizecm + " cm"
+		this.minorLabel.innerText = state.majorGridSubdivisions.toString()
+		this.gridInfo.innerText = state.minorGridDisplay
 	}
 
 	private clearForm() {
-		for (const element of this.multies) {
-			element.remove()
+		for (const property of this.transientProperties) {
+			property.remove()
 		}
+		this.transientProperties = []
 		this.propertiesTitle.innerText = "Properties"
 		this.viewProperties.classList.add("d-none")
 		this.propertiesEntries.classList.add("d-none")
