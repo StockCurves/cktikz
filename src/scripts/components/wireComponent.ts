@@ -746,6 +746,10 @@ export class WireComponent extends Strokable(PathComponent) {
 
 	public applyJson(saveObject: WireSaveObject): void {
 		super.applyJson(saveObject)
+		if (!saveObject.stroke?.width) {
+			this.strokeWidthProperty.value = new SVG.Number("0.4pt")
+			this.strokeInfo.width = this.strokeWidthProperty.value
+		}
 		this.wireDirections = (saveObject.directions ?? []).map((dir: any) => {
 			if (dir === "Straight") return WireDirection.Straight
 			if (dir === "HV") return WireDirection.HV

@@ -383,9 +383,8 @@
 				<div class="d-flex justify-content-between align-items-center w-100">
 					<h5 class="offcanvas-title" id="offcanvasLabel">Symbols</h5>
 					<div class="d-flex gap-2 align-items-center">
-						<button type="button" class="btn btn-sm btn-outline-primary d-flex align-items-center gap-1" id="addCategoryButton" title="Add Category">
+						<button type="button" class="btn btn-primary btn-sm icon-button" id="addCategoryButton" title="Add Category" data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-title="Add Category">
 							<span class="material-symbols-outlined" style="font-size: 16px;">create_new_folder</span>
-							<span>Add Category</span>
 						</button>
 						<button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
 					</div>
@@ -399,14 +398,14 @@
 						placeholder="Search"
 						aria-label="Search" />
 					<button
-						class="material-symbols-outlined btn px-1 ms-1"
+						class="btn btn-secondary btn-sm icon-button component-filter-toggle"
 						id="filterRegexButton"
 						type="button"
 						data-bs-toggle="button"
 						data-bs-toggle-second="tooltip"
 						aria-pressed="false"
 						data-bs-title="Use regular expression">
-						regular_expression
+						<span class="material-symbols-outlined" style="font-size: 18px;">regular_expression</span>
 					</button>
 				</div>
 				<div id="invalid-feedback-text" class="invalid-feedback d-block d-none">

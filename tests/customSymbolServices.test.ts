@@ -23,6 +23,7 @@ import { CustomSymbolService } from "../src/scripts/services/customSymbolService
 import { CustomSymbolRepository } from "../src/scripts/services/customSymbolRepository"
 import { CustomSymbolDomService } from "../src/scripts/services/customSymbolDomService"
 import { TabRepository } from "../src/scripts/services/tabRepository"
+import { WorkFileRepository } from "../src/scripts/services/workFileRepository"
 
 type FakeCategory = {
 	name: string
@@ -35,7 +36,12 @@ const asyncRequest = <T>(value: T) => {
 	return request as IDBRequest<T>
 }
 
-function makeFakeDb(stores: { customSymbols: Map<string, any>; customCategories: FakeCategory[]; tabs?: Map<number, any> }) {
+function makeFakeDb(stores: {
+	customSymbols: Map<string, any>
+	customCategories: FakeCategory[]
+	tabs?: Map<number, any>
+	workFiles?: Map<string, any>
+}) {
 	const scheduleComplete = (tx: any) => setTimeout(() => tx.oncomplete?.(), 0)
 
 	return {
@@ -96,6 +102,30 @@ function makeFakeDb(stores: { customSymbols: Map<string, any>; customCategories:
 							},
 							delete: (key: string) => {
 								stores.customSymbols.delete(key)
+								scheduleComplete(tx)
+								return asyncRequest(undefined)
+							},
+						}
+					}
+					if (name === "workFiles") {
+						return {
+							get: (key: string) => {
+								const request = asyncRequest(stores.workFiles?.get(key))
+								scheduleComplete(tx)
+								return request
+							},
+							getAll: () => {
+								const request = asyncRequest([...(stores.workFiles?.values() || [])])
+								scheduleComplete(tx)
+								return request
+							},
+							put: (value: any) => {
+								stores.workFiles?.set(value.name, value)
+								scheduleComplete(tx)
+								return asyncRequest(value)
+							},
+							delete: (key: string) => {
+								stores.workFiles?.delete(key)
 								scheduleComplete(tx)
 								return asyncRequest(undefined)
 							},
@@ -164,6 +194,7 @@ describe("IndexedDbService", () => {
 		expect(db.createObjectStore).toHaveBeenCalledWith("tabs", { keyPath: "id" })
 		expect(db.createObjectStore).toHaveBeenCalledWith("customCategories", { keyPath: "name" })
 		expect(db.createObjectStore).toHaveBeenCalledWith("customSymbols", { keyPath: "id" })
+		expect(db.createObjectStore).toHaveBeenCalledWith("workFiles", { keyPath: "name" })
 		expect(createdStores.tabs.createIndex).toHaveBeenCalledWith("open", "open", { unique: false })
 	})
 })
@@ -216,7 +247,94 @@ describe("TabRepository", () => {
 	})
 })
 
+describe("WorkFileRepository", () => {
+	it("stores editable work files outside of tab state", async () => {
+		const stores = {
+			customSymbols: new Map<string, any>(),
+			customCategories: [],
+			workFiles: new Map<string, any>([["draft.tex", { name: "draft.tex", content: "old", updatedAt: 1 }]]),
+		}
+		const repository = new WorkFileRepository(makeFakeDb(stores))
+
+		expect((await repository.listWorkFiles()).map((entry) => entry.name)).toEqual(["draft.tex"])
+		expect((await repository.getWorkFile("draft.tex"))?.content).toBe("old")
+
+		await repository.putWorkFile("draft.tex", "new")
+		expect((await repository.getWorkFile("draft.tex"))?.content).toBe("new")
+
+		await repository.putWorkFile("demo.tex", "another")
+		expect((await repository.listWorkFiles()).map((entry) => entry.name)).toEqual(["demo.tex", "draft.tex"])
+
+		await repository.deleteWorkFile("draft.tex")
+		expect(await repository.getWorkFile("draft.tex")).toBeUndefined()
+	})
+})
+
 describe("CustomSymbolDomService", () => {
+	it("repairs derived custom variants with inherited decorator styles when loading old records", () => {
+		document.body.innerHTML = `
+			<svg id="symbolDB">
+				<symbol id="node_pmos">
+					<g stroke="#000" stroke-width=".4">
+						<path fill="none" d="M0 0h10"/>
+						<path stroke-width=".5" d="M1 1c0 1 1 2 2 2Z"/>
+					</g>
+				</symbol>
+				<symbol id="node_pmos_emptycircle">
+					<g stroke="#000" stroke-width=".4">
+						<path fill="none" d="M0 0h10"/>
+						<g fill="#fff">
+							<path stroke-width=".5" d="M1 1c0 1 1 2 2 2Z"/>
+						</g>
+					</g>
+				</symbol>
+				<component tikz="pmos" display="pmos" type="node">
+					<variant for="node_pmos"></variant>
+					<variant for="node_pmos_emptycircle"><option name="emptycircle"/></variant>
+				</component>
+			</svg>
+		`
+		const symbolDB = document.getElementById("symbolDB")!
+		const oldRecord = {
+			id: "custom-hvpmos",
+			tikzName: "hvpmos",
+			displayName: "hvpmos",
+			isCustomSymbol: true,
+			baseSymbol: "pmos",
+			componentXml: `
+				<component tikz="hvpmos" display="hvpmos" type="node">
+					<variant for="node_custom_hvpmos_default"></variant>
+					<variant for="node_custom_hvpmos_1"><option name="emptycircle"/></variant>
+				</component>
+			`,
+			symbols: {
+				node_custom_hvpmos_default: `
+					<symbol id="node_custom_hvpmos_default">
+						<g fill="none" stroke="#000" stroke-width=".4">
+							<path fill="none" d="M0 0h10" data-orig-index="0"/>
+							<path fill="none" stroke-width=".5" d="M1 1c0 1 1 2 2 2Z" data-orig-index="1"/>
+						</g>
+					</symbol>
+				`,
+				node_custom_hvpmos_1: `
+					<symbol id="node_custom_hvpmos_1">
+						<g fill="none" stroke="#000" stroke-width=".4">
+							<path fill="none" d="M0 0h10" data-orig-index="0"/>
+							<path fill="none" stroke-width=".5" d="M1 1c0 1 1 2 2 2Z" data-orig-index="1"/>
+						</g>
+					</symbol>
+				`,
+			},
+		}
+
+		new CustomSymbolDomService().loadCustomSymbolsIntoDom([oldRecord], symbolDB, [])
+
+		expect(oldRecord.symbols.node_custom_hvpmos_1).toContain('fill="#fff"')
+		expect(oldRecord.symbols.node_custom_hvpmos_1).not.toContain('data-orig-index="1"')
+		expect(oldRecord.componentXml).toContain('data-base-for="node_pmos_emptycircle"')
+		expect(document.getElementById("node_custom_hvpmos_1")?.outerHTML).toContain('fill="#fff"')
+	})
+
 	it("renames a custom graphics symbol record and replaces symbolDB nodes", () => {
 		document.body.innerHTML = `
 			<svg id="symbolDB">
@@ -250,6 +368,116 @@ describe("CustomSymbolDomService", () => {
 		expect(document.querySelector(`component[tikz="old mos"]`)).toBeNull()
 		expect(document.getElementById("node_new mos")).not.toBeNull()
 		expect(document.querySelector(`component[tikz="new mos"]`)).not.toBeNull()
+	})
+
+	it("renames internal symbol references so custom drawer icons do not point at removed symbols", () => {
+		document.body.innerHTML = `
+			<svg id="symbolDB">
+				<symbol id="node_custom_dpmos1_default"><use href="#node_custom_dpmos1_1"></use></symbol>
+				<symbol id="node_custom_dpmos1_1"><path d="M0 0h10"/></symbol>
+				<component tikz="dpmos1" display="dpmos1" type="node">
+					<variant for="node_custom_dpmos1_default"></variant>
+					<variant for="node_custom_dpmos1_1"><option name="emptycircle"/></variant>
+				</component>
+			</svg>
+		`
+		const symbolDB = document.getElementById("symbolDB")!
+		const service = new CustomSymbolDomService()
+		const oldRecord = {
+			id: "custom-dpmos1",
+			tikzName: "dpmos1",
+			displayName: "dpmos1",
+			isCustomSymbol: true,
+			componentXml: `
+				<component tikz="dpmos1" display="dpmos1" type="node">
+					<variant for="node_custom_dpmos1_default"></variant>
+					<variant for="node_custom_dpmos1_1"><option name="emptycircle"/></variant>
+				</component>
+			`,
+			symbols: {
+				node_custom_dpmos1_default: `<symbol id="node_custom_dpmos1_default"><use href="#node_custom_dpmos1_1"></use></symbol>`,
+				node_custom_dpmos1_1: `<symbol id="node_custom_dpmos1_1"><path d="M0 0h10"/></symbol>`,
+			},
+		}
+
+		const result = service.renameCustomGraphicsSymbolDom("dpmos1", "dpmos3", oldRecord, symbolDB)
+
+		expect(result.updatedRecord.symbols.node_custom_dpmos3_default).toContain('href="#node_custom_dpmos3_1"')
+		expect(result.updatedRecord.symbols.node_custom_dpmos3_default).not.toContain("node_custom_dpmos1_1")
+		expect(document.getElementById("node_custom_dpmos1_1")).toBeNull()
+		expect(document.getElementById("node_custom_dpmos3_1")).not.toBeNull()
+	})
+
+	it("repairs stale derived custom variants before renaming", () => {
+		document.body.innerHTML = `
+			<svg id="symbolDB">
+				<symbol id="node_dpmos">
+					<g stroke="#000" stroke-width=".4">
+						<path d="M0 0h10" data-orig-index="0"/>
+					</g>
+				</symbol>
+				<symbol id="node_dpmos_emptycircle">
+					<g stroke="#000" stroke-width=".4">
+						<path d="M0 0h10" data-orig-index="0"/>
+						<circle cx="2" cy="2" r="1"/>
+					</g>
+				</symbol>
+				<component tikz="dpmos" display="dpmos" type="node">
+					<variant for="node_dpmos"></variant>
+					<variant for="node_dpmos_emptycircle"><option name="emptycircle"/></variant>
+				</component>
+				<symbol id="node_custom_dpmos1_default">
+					<g stroke="#000" stroke-width=".4">
+						<path d="M0 0h10" data-orig-index="0"/>
+					</g>
+				</symbol>
+				<symbol id="node_custom_dpmos1_1">
+					<g stroke="#000" stroke-width=".4">
+						<path d="M0 0h10" data-orig-index="0"/>
+					</g>
+				</symbol>
+				<component tikz="dpmos1" display="dpmos1" type="node">
+					<variant for="node_custom_dpmos1_default" data-base-for="node_dpmos"></variant>
+					<variant for="node_custom_dpmos1_1" data-base-for="node_dpmos_emptycircle"><option name="emptycircle"/></variant>
+				</component>
+			</svg>
+		`
+		const symbolDB = document.getElementById("symbolDB")!
+		const service = new CustomSymbolDomService()
+		const oldRecord = {
+			id: "custom-dpmos1",
+			tikzName: "dpmos1",
+			displayName: "dpmos1",
+			isCustomSymbol: true,
+			baseSymbol: "dpmos",
+			componentXml: `
+				<component tikz="dpmos1" display="dpmos1" type="node">
+					<variant for="node_custom_dpmos1_default" data-base-for="node_dpmos"></variant>
+					<variant for="node_custom_dpmos1_1" data-base-for="node_dpmos_emptycircle"><option name="emptycircle"/></variant>
+				</component>
+			`,
+			symbols: {
+				node_custom_dpmos1_default: `
+					<symbol id="node_custom_dpmos1_default">
+						<g stroke="#000" stroke-width=".4">
+							<path d="M0 0h10" data-orig-index="0"/>
+						</g>
+					</symbol>
+				`,
+				node_custom_dpmos1_1: `
+					<symbol id="node_custom_dpmos1_1">
+						<g stroke="#000" stroke-width=".4">
+							<path d="M0 0h10" data-orig-index="0"/>
+						</g>
+					</symbol>
+				`,
+			},
+		}
+
+		const result = service.renameCustomGraphicsSymbolDom("dpmos1", "dpmos3", oldRecord, symbolDB)
+
+		expect(result.updatedRecord.symbols.node_custom_dpmos3_1).toContain("<circle")
+		expect(document.getElementById("node_custom_dpmos3_1")?.outerHTML).toContain("<circle")
 	})
 })
 
@@ -330,6 +558,7 @@ describe("CustomSymbolService", () => {
 		expect(runtimeSymbols[0].tikzName).toBe("copy mos")
 		expect(stores.customCategories[0].symbolIds).toEqual(["copy mos"])
 		expect(stores.customSymbols.get("custom-copy mos")?.tikzName).toBe("copy mos")
+		expect(stores.customSymbols.get("custom-copy mos")?.componentXml).toContain('data-base-for="node_base"')
 	})
 
 	it("deletes a custom symbol definition without touching placed components", async () => {

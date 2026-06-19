@@ -4,6 +4,7 @@ import { Modal } from "bootstrap"
 import { MainController } from "./mainController"
 import { ComponentSymbol, TikZAnchor } from "../components/componentSymbol"
 import { defaultStroke, defaultFill } from "../utils/utils"
+import { buildSymbolVariantDiff } from "../utils/symbolVariantDiff"
 
 export class SymbolEditorController {
 	private static _instance: SymbolEditorController
@@ -848,25 +849,46 @@ export class SymbolEditorController {
 
 		const symbolDB = document.getElementById("symbolDB")
 		const baseSymbolName = this.customSymbol.baseSymbol || "nmos"
-		
-		console.log("[HVNMOS_DEBUG] save() initiated. baseSymbol:", baseSymbolName, "symbolDB exists:", !!symbolDB);
 
 		// Locate original base component to perform SVG/pins diffing
 		const baseComponentNode = symbolDB ? 
 			Array.from(symbolDB.getElementsByTagName("component")).find(c => c.getAttribute("tikz") === baseSymbolName) : 
 			null
-		console.log("[HVNMOS_DEBUG] baseComponentNode found:", !!baseComponentNode);
 		
 		const baseVariants = baseComponentNode ? Array.from(baseComponentNode.getElementsByTagName("variant")) : []
-		console.log("[HVNMOS_DEBUG] baseVariants count:", baseVariants.length);
 
 		const compVariants = compNode.getElementsByTagName("variant")
 		const newSymbolsMap: { [key: string]: string } = {}
+		const optionKeyForVariant = (variant: Element | undefined | null) => {
+			if (!variant) return ""
+			return Array.from(variant.getElementsByTagName("option"))
+				.map((option) => option.getAttribute("name") || "")
+				.filter(Boolean)
+				.sort()
+				.join("\u0000")
+		}
+		const baseVariantByOptions = new Map<string, Element>()
+		baseVariants.forEach((variant) => baseVariantByOptions.set(optionKeyForVariant(variant), variant))
+		const findBaseVariantForCustomVariant = (variant: Element | undefined | null, index: number): Element | null => {
+			if (!variant) return null
+			const baseFor = variant.getAttribute("data-base-for")
+			if (baseFor) {
+				const matched = baseVariants.find((baseVariant) => baseVariant.getAttribute("for") === baseFor)
+				if (matched) return matched
+			}
+
+			const matchedByOptions = baseVariantByOptions.get(optionKeyForVariant(variant))
+			if (matchedByOptions) return matchedByOptions
+
+			return baseVariants[index] ?? null
+		}
+		const origBaseVariant = findBaseVariantForCustomVariant(compVariants[0], 0) || baseVariants[0]
 
 		// Rebuild all variant symbol definitions
 		for (let i = 0; i < compVariants.length; i++) {
 			const variantNode = compVariants[i]
 			const newSymbolId = variantNode.getAttribute("for")!
+			const origVarVariant = findBaseVariantForCustomVariant(variantNode, i)
 
 			// 1. Rebuild pins list for this variant (keep edited base pins, merge variant-specific original pins)
 			const existingPinNodes = variantNode.querySelectorAll("pin")
@@ -877,8 +899,6 @@ export class SymbolEditorController {
 				variantPins = pins
 			} else {
 				variantPins = [...pins]
-				const origBaseVariant = baseVariants[0]
-				const origVarVariant = baseVariants[i]
 				const basePinNames = new Set(
 					origBaseVariant ? 
 					Array.from(origBaseVariant.getElementsByTagName("pin")).map(p => p.getAttribute("name")) : 
@@ -924,8 +944,8 @@ export class SymbolEditorController {
 			if (i === 0) {
 				newSymbolXml = `<symbol id="${newSymbolId}">\n<g fill="none" stroke="${defaultStroke}" stroke-miterlimit="10" stroke-width=".4">\n${elementsXmlArr.join("\n")}\n</g>\n${clickRectHtml}\n</symbol>`
 			} else {
-				const origBaseSymId = baseVariants[0]?.getAttribute("for")
-				const origVarSymId = baseVariants[i]?.getAttribute("for")
+				const origBaseSymId = origBaseVariant?.getAttribute("for")
+				const origVarSymId = origVarVariant?.getAttribute("for")
 				const origBaseSymNode = origBaseSymId ? document.getElementById(origBaseSymId) : null
 				const origVarSymNode = origVarSymId ? document.getElementById(origVarSymId) : null
 
@@ -933,38 +953,9 @@ export class SymbolEditorController {
 				const deletedBaseIndices = new Set<number>()
 
 				if (origBaseSymNode && origVarSymNode) {
-					const getLeafElements = (symNode: Element) => {
-						const els: string[] = []
-						const traverse = (node: Element) => {
-							if (node.tagName.toLowerCase() === "pin" || node.classList.contains("clickBackground")) return
-							if (node.tagName.toLowerCase() === "g" || node.tagName.toLowerCase() === "symbol") {
-								Array.from(node.children).forEach(traverse)
-							} else {
-								els.push(node.outerHTML.trim())
-							}
-						}
-						traverse(symNode)
-						return els
-					}
-
-					const baseLeafs = getLeafElements(origBaseSymNode)
-					const varLeafs = getLeafElements(origVarSymNode)
-					const varLeafsSet = new Set(varLeafs)
-
-					// Subtractive diff: identify original leaves removed by this option
-					baseLeafs.forEach((leaf, idx) => {
-						if (!varLeafsSet.has(leaf)) {
-							deletedBaseIndices.add(idx)
-						}
-					})
-					
-					// Additive diff: identify new leaves added by this option
-					const baseLeafsSet = new Set(baseLeafs)
-					varLeafs.forEach(leaf => {
-						if (!baseLeafsSet.has(leaf)) {
-							decoratorElements.push(leaf)
-						}
-					})
+					const diff = buildSymbolVariantDiff(origBaseSymNode, origVarSymNode)
+					diff.deletedBaseIndices.forEach((idx) => deletedBaseIndices.add(idx))
+					decoratorElements.push(...diff.decoratorElements)
 				}
 
 				// Filter edited elements array to remove deleted base leaves
@@ -982,8 +973,6 @@ export class SymbolEditorController {
 
 			newSymbolsMap[newSymbolId] = newSymbolXml
 		}
-
-		console.log("[HVNMOS_DEBUG] rebuilt symbols keys:", Object.keys(newSymbolsMap));
 
 		// Update database record
 		this.customSymbol.componentXml = compNode.outerHTML

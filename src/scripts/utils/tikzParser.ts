@@ -94,6 +94,57 @@ function parseOptions(optionsStr: string): { standalone: string[]; kv: { [key: s
 	return { standalone, kv };
 }
 
+function parseStrokeOptions(optionsStr: string): { stroke?: { width?: SVG.Number; opacity?: number; style?: string } } {
+	const { standalone, kv } = parseOptions(optionsStr);
+	const stroke: { width?: SVG.Number; opacity?: number; style?: string } = {};
+
+	if (kv["line width"] !== undefined) {
+		const rawWidth = kv["line width"].trim();
+		if (rawWidth) {
+			stroke.width = new SVG.Number(rawWidth);
+		}
+	}
+
+	if (kv["draw opacity"] !== undefined) {
+		const rawOpacity = kv["draw opacity"].trim();
+		if (rawOpacity) {
+			const parsed = rawOpacity.endsWith("%") ? parseFloat(rawOpacity) / 100 : parseFloat(rawOpacity);
+			if (!Number.isNaN(parsed)) {
+				stroke.opacity = parsed;
+			}
+		}
+	}
+
+	const has = (name: string) => standalone.includes(name);
+	if (has("densely dashed")) {
+		stroke.style = "denselydashed";
+	} else if (has("loosely dashed")) {
+		stroke.style = "looselydashed";
+	} else if (has("dashed")) {
+		stroke.style = "dashed";
+	} else if (has("densely dotted")) {
+		stroke.style = "denselydotted";
+	} else if (has("loosely dotted")) {
+		stroke.style = "looselydotted";
+	} else if (has("dotted")) {
+		stroke.style = "dotted";
+	} else if (has("densely dash dot dot")) {
+		stroke.style = "denselydashdotdot";
+	} else if (has("loosely dash dot dot")) {
+		stroke.style = "looselydashdotdot";
+	} else if (has("dash dot dot")) {
+		stroke.style = "dashdotdot";
+	} else if (has("densely dash dot")) {
+		stroke.style = "denselydashdot";
+	} else if (has("loosely dash dot")) {
+		stroke.style = "looselydashdot";
+	} else if (has("dash dot")) {
+		stroke.style = "dashdot";
+	}
+
+	return Object.keys(stroke).length > 0 ? { stroke } : {};
+}
+
 function mapPoleShortcut(char: string): string {
 	if (char === "*") return "circ";
 	if (char === "o") return "ocirc";
@@ -621,6 +672,7 @@ export function parseTikz(tikzCode: string): any[] {
 			const drawBody = drawMatch[2] || "";
 
 			const { standalone: globalStandalone } = parseOptions(drawOptionsStr);
+			const strokeInfo = parseStrokeOptions(drawOptionsStr);
 
 			// Parse global arrows
 			let globalArrows = { start: "none", end: "none" };
@@ -681,6 +733,7 @@ export function parseTikz(tikzCode: string): any[] {
 							directions: currentWire.directions,
 							startArrow: globalArrows.start,
 							endArrow: globalArrows.end,
+							...strokeInfo,
 							lines: [cmdObj.startLine, cmdObj.endLine]
 						});
 					}
@@ -774,6 +827,7 @@ export function parseTikz(tikzCode: string): any[] {
 								points: [coords[i].simplifyForJson(), coords[i + 1].simplifyForJson()],
 								poles: poles,
 								label: labelObj,
+								...strokeInfo,
 								lines: [cmdObj.startLine, cmdObj.endLine]
 							});
 						} else if (isOpen) {
@@ -782,6 +836,7 @@ export function parseTikz(tikzCode: string): any[] {
 								points: [coords[i].simplifyForJson(), coords[i + 1].simplifyForJson()],
 								poles: poles,
 								label: labelObj,
+								...strokeInfo,
 								lines: [cmdObj.startLine, cmdObj.endLine]
 							});
 						} else if (symbolId) {
@@ -793,6 +848,7 @@ export function parseTikz(tikzCode: string): any[] {
 								options: toStandalone.filter((o) => o !== symbolId && TIKZ_NAME_MAP[o] !== symbolId),
 								poles: poles,
 								label: labelObj,
+								...strokeInfo,
 								lines: [cmdObj.startLine, cmdObj.endLine]
 							});
 						} else {
@@ -841,4 +897,3 @@ export function parseTikz(tikzCode: string): any[] {
 
 	return components;
 }
-

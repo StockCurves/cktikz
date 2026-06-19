@@ -57,5 +57,5 @@ For multi-step tasks, state a brief plan:
 3. [Step] → verify: [check]
 ```
 
-- 用繁體中文交談，專有名詞保留英文
+- 用繁體中文交談，專有名詞保留英文，檔名不要中文
 - /grill-me 後產生的 implementation_plan 存到 porject ./history/YYYY-MMDD-HHMM-<topic>.md
