@@ -5,10 +5,8 @@ import { waitForElementLoaded } from "../utils/domWatcher"
 import hotkeys from "hotkeys-js"
 import { version } from "../../../package.json"
 import { CustomSymbolService, type CustomSymbolRecord } from "../services/customSymbolService"
-import { CustomSymbolDomService } from "../services/customSymbolDomService"
-import { IndexedDbService } from "../services/indexedDbService"
-import { SubcircuitPreviewService } from "../services/subcircuitPreviewService"
-import { TabRepository } from "../services/tabRepository"
+import { getAppRuntime } from "../services/appRuntime"
+import { TabSessionService } from "../services/tabSessionService"
 
 import {
 	CanvasController,
@@ -128,14 +126,9 @@ export class MainController {
 	public pendingLoadData: SaveFileFormat | null = null
 
 	private db: IDBDatabase
-	private readonly indexedDbService = new IndexedDbService()
-	private readonly customSymbolDomService = new CustomSymbolDomService()
-	private readonly subcircuitPreviewService = new SubcircuitPreviewService()
-	private readonly customSymbolService = new CustomSymbolService(
-		() => this.db,
-		this.customSymbolDomService,
-		(subcircuitData) => this.subcircuitPreviewService.generatePreview(subcircuitData)
-	)
+	private readonly appRuntime = getAppRuntime()
+	private readonly indexedDbService = this.appRuntime.createIndexedDbService()
+	private readonly customSymbolService: CustomSymbolService = this.appRuntime.createCustomSymbolService(() => this.db)
 
 	/**
 	 * Init the app.
@@ -180,11 +173,9 @@ export class MainController {
 			fileExportName.placeholder =
 				MainController.instance.designName.value.replace(/[^a-z0-9]/gi, "_") || "Circuit"
 
-			const tabRepository = new TabRepository<TabState>(MainController.instance.db)
-			tabRepository.getTab(this.tabID).then((data) => {
-				if (!data) return
-				data.designName = MainController.instance.designName.value
-				tabRepository.putTab(data).then(() => MainController.instance.sendBroadcastMessage("update"))
+			this.createTabSessionService().updateDesignName(this.tabID, MainController.instance.designName.value || undefined).then((updated) => {
+				if (!updated) return
+				MainController.instance.sendBroadcastMessage("update")
 			})
 		})
 
@@ -369,53 +360,16 @@ export class MainController {
 				MainController.instance.saveCurrentState()
 			})
 
-			const tabRepository = new TabRepository<TabState>(MainController.instance.db)
-
 			// the URL of the current page
 			var url = new URL(window.location.href)
 			// check if a tabID is requested in the URL, otherwise use the first closed tab
 			var requestedID = parseInt(url.searchParams.get("tabID"))
-
-			tabRepository.getAllTabs().then((allTabs) => {
-
-				if (Number.isNaN(requestedID)) {
-					// no tabID is requested in the URL, so we need to find the first closed tab
-					requestedID = allTabs.findIndex((tab) => tab.open == "false")
-
-					if (requestedID < 0) {
-						// no closed tab found, use the next available ID
-						requestedID = 0
-						while (allTabs.find((tab) => tab.id == requestedID)) {
-							requestedID++
-						}
-					}
-				}
-
-				let requestedTab = allTabs.find((tab) => tab.id == requestedID)
-				if (requestedTab) {
-					// if the requested tab is closed, open it
-					requestedTab.open = "true"
-					MainController.instance.tabID = requestedTab.id
-					MainController.instance.designName.updateValue(requestedTab.designName ?? "", true, true)
-					CanvasController.instance.setSettings(requestedTab.settings)
-					MainController.instance.pendingLoadData = requestedTab.data
-					tabRepository.putTab(requestedTab).then(() => {
-						MainController.instance.sendBroadcastMessage("update")
-					})
-				} else {
-					// requested tab not found, so we create a new one
-					const newEntry: TabState = {
-						id: requestedID,
-						open: "true",
-						data: emtpySaveState,
-						settings: defaultSettings,
-					}
-					MainController.instance.tabID = requestedID
-					tabRepository.addTab(newEntry).then(() => {
-						// as soon as the tab is created and saved in the db, we can notify the other tabs
-						MainController.instance.sendBroadcastMessage("update")
-					})
-				}
+			this.createTabSessionService().initializeTab(requestedID, emtpySaveState, defaultSettings).then((session) => {
+				MainController.instance.tabID = session.tabId
+				MainController.instance.designName.updateValue(session.designName ?? "", true, true)
+				CanvasController.instance.setSettings(session.settings)
+				MainController.instance.pendingLoadData = session.pendingData
+				MainController.instance.sendBroadcastMessage("update")
 			})
 		})
 
@@ -425,60 +379,42 @@ export class MainController {
 
 		settingsModalEl.addEventListener("show.bs.modal", (event) => {
 			this.saveCurrentState(false)
-			const tabRepository = new TabRepository<TabState>(MainController.instance.db)
-			tabRepository.getAllTabs().then((currentData) => {
+			this.createTabSessionService().getTabManagementSummary(
+				MainController.instance.tabID,
+				(data) => memorySizeOf(data),
+				(data) => countComponents(data.components)
+			).then((summary) => {
 				settingsTableBody.innerHTML = ""
 
-				let totalSize = 0
-
-				for (let i = 0; i < currentData.length; i++) {
-					const tabData = currentData[i]
+				for (const tabData of summary.entries) {
 					let row = settingsTableBody.appendChild(document.createElement("tr"))
 					row.classList.add("text-end")
 					let cell1 = row.appendChild(document.createElement("td"))
-					cell1.innerText = tabData.designName || "" + i
+					cell1.innerText = tabData.displayName
 					let cell2 = row.appendChild(document.createElement("td"))
-					cell2.innerText = countComponents(tabData.data.components) + ""
+					cell2.innerText = tabData.componentCount + ""
 					let cell3 = row.appendChild(document.createElement("td"))
-					let size = memorySizeOf(tabData.data)
-					totalSize += size
-					cell3.innerText = sizeString(size)
+					cell3.innerText = sizeString(tabData.size)
 					let cell4 = row.appendChild(document.createElement("td"))
-					if (tabData.open == "false") {
+					if (!tabData.open) {
 						let openButton = cell4.appendChild(document.createElement("button"))
 						openButton.classList.add("btn", "btn-primary", "me-2")
 						openButton.innerText = "Open"
 						openButton.addEventListener("click", () => {
-							// set the data in the object store to open
-							let allOpen = true
-							for (let index = 0; index < tabData.id; index++) {
-								// current data will not be stale since the tab management gets updated immediately when something changes
-								let current = currentData.find((tab) => tab.id == index)
-								if (current) {
-									allOpen = allOpen && current.open == "true"
-								} else {
-									allOpen = false
-								}
-							}
-							if (allOpen) {
-								// if possible, don't use the tabID parameter
-								window.open(".", "_blank")
-							} else {
-								window.open(".?tabID=" + tabData.id, "_blank")
-							}
+							window.open(tabData.openUrl, "_blank")
 						})
 
 						let deleteButton = cell4.appendChild(document.createElement("button"))
 						deleteButton.classList.add("btn", "btn-danger", "material-symbols-outlined")
 						deleteButton.innerText = "delete"
 						deleteButton.addEventListener("click", () => {
-							tabRepository.deleteTab(tabData.id).then(() => {
+							this.createTabSessionService().deleteTab(tabData.id).then(() => {
 								settingsModalEl.dispatchEvent(new Event("show.bs.modal"))
 								MainController.instance.sendBroadcastMessage("update")
 							})
 						})
 					} else {
-						if (tabData.id == MainController.instance.tabID) {
+						if (tabData.isCurrent) {
 							let infoButton = cell4.appendChild(document.createElement("button"))
 							infoButton.classList.add("btn")
 							infoButton.innerText = "This tab"
@@ -505,62 +441,25 @@ export class MainController {
 				newTabButton.classList.add("btn", "btn-primary")
 				newTabButton.innerText = "New tab"
 				newTabButton.addEventListener("click", () => {
-					// set the data in the object store to open
-					let requestedID = 0
-					let allOpen = true
-					while (true) {
-						// continue until no tab is found
-						let tab = currentData.find((tab) => tab.id == requestedID)
-
-						if (tab) {
-							requestedID++
-							allOpen = allOpen && tab.open == "true"
-						} else {
-							break
-						}
-					}
-					if (allOpen) {
-						// if possible, don't use the tabID parameter
-						window.open(".", "_blank")
-					} else {
-						window.open(".?tabID=" + requestedID, "_blank")
-					}
+					window.open(summary.newTabUrl, "_blank")
 				})
 
-				document.getElementById("storageUsed").innerHTML = sizeString(totalSize)
+				document.getElementById("storageUsed").innerHTML = sizeString(summary.totalSize)
 			})
 		})
 
 		document.getElementById("probeRefresh").addEventListener("click", () => {
 			// set all open states in indexedDB to false, then send a probe message to all tabs
-			const tabRepository = new TabRepository<TabState>(MainController.instance.db)
-			tabRepository.getAllTabs().then((allTabs) => {
-
-				let requests: Promise<void>[] = []
-				for (const tab of allTabs) {
-					if (tab.id == MainController.instance.tabID) {
-						// skip this tab
-						continue
-					}
-					if (tab.open == "true") {
-						// set the tab to closed in the db, but keep the data (even if the tab is empty)
-						tab.open = "false"
-						requests.push(tabRepository.putTab(tab))
-					} else {
-						// if the tab is already closed and has no data, delete the entry (keeps the db clean)
-						if (tab.data.components.length == 0) {
-							requests.push(tabRepository.deleteTab(tab.id))
-						}
-					}
-				}
-				Promise.all(requests).then(() => {
-					// after all tabs are closed (in the db, not the tab in the browser), send a probe message to all tabs
-					// this will cause all open tabs to set their state to open=true again
-					settingsModalEl.dispatchEvent(new Event("show.bs.modal"))
-					setTimeout(() => {
-						MainController.instance.sendBroadcastMessage("probe")
-					}, 10)
-				})
+			this.createTabSessionService().markOtherTabsClosedForProbe(
+				MainController.instance.tabID,
+				(data) => data.components.length > 0
+			).then(() => {
+				// after all tabs are closed (in the db, not the tab in the browser), send a probe message to all tabs
+				// this will cause all open tabs to set their state to open=true again
+				settingsModalEl.dispatchEvent(new Event("show.bs.modal"))
+				setTimeout(() => {
+					MainController.instance.sendBroadcastMessage("probe")
+				}, 10)
 			})
 		})
 
@@ -618,13 +517,9 @@ export class MainController {
 				}
 
 				// set the indexedDB entry with tabID msg.tabID to open=true
-				const tabRepository = new TabRepository<TabState>(MainController.instance.db)
-				tabRepository.getTab(msg.from).then((data) => {
-					if (data) {
-						data.open = "true"
-						tabRepository.putTab(data).then(() => {
-							MainController.instance.sendBroadcastMessage("update")
-						})
+				this.createTabSessionService().markTabOpen(msg.from).then((updated) => {
+					if (updated) {
+						MainController.instance.sendBroadcastMessage("update")
 					}
 				})
 				if (settingsModalEl.classList.contains("show")) {
@@ -671,32 +566,30 @@ export class MainController {
 
 	private saveCurrentState(closeTab = true) {
 		Undo.addState()
-		const tabRepository = new TabRepository<TabState>(MainController.instance.db)
-		tabRepository.getTab(this.tabID).then((data) => {
-			if (!data) return
-			if (closeTab) {
-				data.open = "false"
-			}
-			data.data = Undo.getCurrentState()
-			if (data.data.components.length > 0) {
-				data.settings.gridVisible = CanvasController.instance.gridVisible
-				data.settings.majorGridSizecm = CanvasController.instance.majorGridSizecm
-				data.settings.majorGridSubdivisions = CanvasController.instance.majorGridSubdivisions
-				data.settings.viewBox = CanvasController.instance.canvas.viewbox()
-				data.settings.viewZoom = CanvasController.instance.currentZoom
-				data.designName = MainController.instance.designName.value || undefined
-				tabRepository.putTab(data).then(() => {
-					MainController.instance.sendBroadcastMessage("update")
-				})
-			} else {
-				if (closeTab) {
-					// if no data is present, delete the entry (keeps the db clean)
-					tabRepository.deleteTab(MainController.instance.tabID).then(() => {
-						MainController.instance.sendBroadcastMessage("update")
-					})
-				}
+		this.createTabSessionService().persistSnapshot(
+			this.tabID,
+			{
+				data: Undo.getCurrentState(),
+				settings: {
+					gridVisible: CanvasController.instance.gridVisible,
+					majorGridSizecm: CanvasController.instance.majorGridSizecm,
+					majorGridSubdivisions: CanvasController.instance.majorGridSubdivisions,
+					viewBox: CanvasController.instance.canvas.viewbox(),
+					viewZoom: CanvasController.instance.currentZoom,
+				},
+				designName: MainController.instance.designName.value || undefined,
+			},
+			closeTab,
+			(data) => data.components.length > 0
+		).then((result) => {
+			if (result === "updated" || result === "deleted") {
+				MainController.instance.sendBroadcastMessage("update")
 			}
 		})
+	}
+
+	private createTabSessionService(): TabSessionService<SaveFileFormat, CanvasSettings> {
+		return this.appRuntime.createTabSessionService<SaveFileFormat, CanvasSettings>(MainController.instance.db)
 	}
 
 	/**
@@ -2350,7 +2243,7 @@ export class MainController {
 	}
 
 	private async generateSubcircuitSvgPreview(subcircuitData: any): Promise<string | null> {
-		return this.subcircuitPreviewService.generatePreview(subcircuitData)
+		return this.appRuntime.createSubcircuitPreviewService().generatePreview(subcircuitData)
 	}
 
 	public getCustomSubcircuitsTikzset(): string {

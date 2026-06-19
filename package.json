@@ -21,7 +21,10 @@
 		"main": false
 	},
 	"scripts": {
+		"generate:template-manifest": "node scripts/generate-template-manifest.js",
+		"prebuild": "npm run generate:template-manifest",
 		"build": "parcel build --public-url ./",
+		"prestart:client": "npm run generate:template-manifest",
 		"update": "npx npm-check-updates -u",
 		"prepack": "npm run build",
 		"start": "node scripts/dev.js",

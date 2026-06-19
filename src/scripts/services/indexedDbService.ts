@@ -1,5 +1,5 @@
 export const DATABASE_NAME = "circuitikz-designer-db-v2"
-export const DATABASE_VERSION = 1
+export const DATABASE_VERSION = 2
 
 export class IndexedDbService {
 	public constructor(private readonly indexedDb: IDBFactory = indexedDB) {}
@@ -27,6 +27,9 @@ export class IndexedDbService {
 				}
 				if (!db.objectStoreNames.contains("customSymbols")) {
 					db.createObjectStore("customSymbols", { keyPath: "id" })
+				}
+				if (!db.objectStoreNames.contains("workFiles")) {
+					db.createObjectStore("workFiles", { keyPath: "name" })
 				}
 			}
 			request.onsuccess = () => {

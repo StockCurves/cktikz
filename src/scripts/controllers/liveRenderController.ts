@@ -1,4 +1,5 @@
 import { TikzEditorController } from "../internal"
+import { getAppRuntime } from "../services/appRuntime"
 import { LatexRenderService, prepareLatexSource } from "../services/latexRenderService"
 
 export class LiveRenderController {
@@ -33,7 +34,7 @@ export class LiveRenderController {
 	private renderGeneration = 0
 	private debounceTimer: any = null
 	private lastRenderedCode = ""
-	private readonly latexRenderService = new LatexRenderService()
+	private readonly latexRenderService: LatexRenderService = getAppRuntime().createLatexRenderService()
 
 	private constructor() {}
 

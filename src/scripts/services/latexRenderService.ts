@@ -1,5 +1,3 @@
-import { getApiBase } from "./apiBase"
-
 export interface PreparedLatexSource {
 	bodyCode: string
 	libraries: string[]
@@ -39,7 +37,7 @@ export function prepareLatexSource(raw: string): PreparedLatexSource {
 }
 
 export class LatexRenderService {
-	public constructor(private readonly apiBase = getApiBase()) {}
+	public constructor(private readonly apiBase: string) {}
 
 	public async renderViaQuickLaTeX(bodyCode: string, libraries: string[]): Promise<HTMLImageElement> {
 		const libsStr = libraries.join(",")

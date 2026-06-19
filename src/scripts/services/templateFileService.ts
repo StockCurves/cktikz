@@ -1,4 +1,3 @@
-import { getApiBase } from "./apiBase"
 import { TemplateDataSource, TemplateDirectory } from "./templateTypes"
 
 export interface TemplateFileList {
@@ -7,7 +6,7 @@ export interface TemplateFileList {
 }
 
 export class TemplateFileService implements TemplateDataSource {
-	public constructor(private readonly apiBase = getApiBase()) {}
+	public constructor(private readonly apiBase: string) {}
 
 	public async listFiles(): Promise<{ templates: string[]; works: string[] }> {
 		const res = await fetch(`${this.apiBase}/api/files`)

@@ -1,8 +1,7 @@
 import { Modal } from "bootstrap"
 import { MainController } from "./mainController"
 import { TikzEditorController } from "./tikzEditorController"
-import { TemplateApplicationService } from "../services/templateApplicationService"
-import { TemplateFileService } from "../services/templateFileService"
+import { getAppRuntime } from "../services/appRuntime"
 import { TemplateDirectory, TemplateListViewModel } from "../services/templateTypes"
 
 export class TemplateController {
@@ -22,8 +21,7 @@ export class TemplateController {
 	private workContextMenu: HTMLDivElement | null = null
 	private deleteWorkButton: HTMLButtonElement | null = null
 	private contextMenuTargetFile: string | null = null
-	private readonly applicationService = new TemplateApplicationService(
-		new TemplateFileService(),
+	private readonly applicationService = getAppRuntime().createTemplateApplicationService(
 		{
 			getCode: () => TikzEditorController.instance.getCode(),
 			setCode: (code) => TikzEditorController.instance.setCode(code),

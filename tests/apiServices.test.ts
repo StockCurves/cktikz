@@ -1,7 +1,26 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
+
+vi.mock("../src/scripts/services/subcircuitPreviewService", () => ({
+	SubcircuitPreviewService: class {
+		generatePreview = vi.fn().mockResolvedValue(null)
+	},
+}))
+
+vi.mock("../src/scripts/components/componentSymbol", () => ({
+	ComponentSymbol: class {},
+}))
+
+vi.mock("../src/scripts/components/circuitComponent", () => ({
+	CircuitComponent: class {},
+}))
+
+import { createRuntimeConfig } from "../src/scripts/config/runtimeConfig"
 import { getApiBase } from "../src/scripts/services/apiBase"
+import { getAppRuntime, setAppRuntimeForTests } from "../src/scripts/services/appRuntime"
 import { TemplateFileService } from "../src/scripts/services/templateFileService"
 import { LatexRenderService, prepareLatexSource } from "../src/scripts/services/latexRenderService"
+import { IndexedDbTemplateDataSource } from "../src/scripts/services/indexedDbTemplateDataSource"
+import { StaticTemplateDataSource } from "../src/scripts/services/staticTemplateDataSource"
 
 const mockFetch = (response: Partial<Response>) => {
 	const fetchMock = vi.fn().mockResolvedValue(response)
@@ -17,6 +36,86 @@ describe("getApiBase", () => {
 
 	it("uses same-origin API paths for deployed hosts", () => {
 		expect(getApiBase("example.com")).toBe("")
+	})
+})
+
+describe("createRuntimeConfig", () => {
+	afterEach(() => {
+		delete (window as any).__CIRCUITIKZ_DESIGNER_RUNTIME__
+		setAppRuntimeForTests(null)
+		vi.unstubAllGlobals()
+	})
+
+	it("defaults to the current server-backed runtime modes", () => {
+		expect(createRuntimeConfig({}, "localhost")).toEqual({
+			storageMode: "server",
+			templateSource: "server",
+			latexMode: "server-proxy",
+			apiBase: "http://localhost:3001",
+		})
+	})
+
+	it("allows runtime overrides for provider-based modes", () => {
+		;(window as any).__CIRCUITIKZ_DESIGNER_RUNTIME__ = {
+			storageMode: "indexeddb",
+			templateSource: "static-manifest",
+			latexMode: "serverless-proxy",
+			apiBase: "/demo-api",
+		}
+
+		expect(createRuntimeConfig({}, "example.com")).toEqual({
+			storageMode: "indexeddb",
+			templateSource: "static-manifest",
+			latexMode: "serverless-proxy",
+			apiBase: "/demo-api",
+		})
+	})
+
+	it("switches template data source to IndexedDB-backed work storage in indexeddb mode", () => {
+		setAppRuntimeForTests(null)
+		;(window as any).__CIRCUITIKZ_DESIGNER_RUNTIME__ = {
+			storageMode: "indexeddb",
+			templateSource: "server",
+			latexMode: "server-proxy",
+			apiBase: "/api",
+		}
+		vi.stubGlobal("indexedDB", {
+			open: vi.fn(() => ({
+				result: {
+					objectStoreNames: { contains: vi.fn().mockReturnValue(true) },
+					onversionchange: null,
+					close: vi.fn(),
+				},
+				onsuccess: null,
+				onerror: null,
+				onblocked: null,
+				onupgradeneeded: null,
+			})),
+		})
+		setAppRuntimeForTests(null)
+
+		expect(getAppRuntime().createTemplateDataSource()).toBeInstanceOf(IndexedDbTemplateDataSource)
+	})
+
+	it("switches template data source to static-manifest mode when configured", () => {
+		;(window as any).__CIRCUITIKZ_DESIGNER_RUNTIME__ = {
+			storageMode: "server",
+			templateSource: "static-manifest",
+			latexMode: "server-proxy",
+			apiBase: "/api",
+		}
+		setAppRuntimeForTests(null)
+
+		expect(getAppRuntime().createTemplateDataSource()).toBeInstanceOf(StaticTemplateDataSource)
+	})
+
+	it("creates custom symbol services through the runtime instead of controller-local constructors", () => {
+		const service = getAppRuntime().createCustomSymbolService(() => ({}) as IDBDatabase)
+		expect(service).toMatchObject({
+			loadCustomSymbolsIntoDomAndRuntime: expect.any(Function),
+			duplicateSymbol: expect.any(Function),
+			renameCustomGraphicsSymbol: expect.any(Function),
+		})
 	})
 })
 
