@@ -5,8 +5,11 @@ import { waitForElementLoaded } from "../utils/domWatcher"
 import hotkeys from "hotkeys-js"
 import { version } from "../../../package.json"
 import { TabManagementController } from "./tabManagementController"
+import { CustomSymbolDrawerController } from "./customSymbolDrawerController"
+import { CustomSymbolSaveController } from "./customSymbolSaveController"
+import { SymbolLibraryMenuController } from "./symbolLibraryMenuController"
 import { CustomSymbolApplicationService } from "../services/customSymbolApplicationService"
-import { CustomSymbolService, type CustomSymbolRecord } from "../services/customSymbolService"
+import type { CustomSymbolRecord } from "../services/customSymbolService"
 import { getAppRuntime } from "../services/appRuntime"
 import type { BroadcastMessage, BroadcastMessageType } from "../services/tabBroadcastService"
 import {
@@ -109,6 +112,9 @@ export class MainController {
 
 	broadcastChannel: BroadcastChannel
 	private readonly tabManagementController = new TabManagementController()
+	private readonly customSymbolDrawerController = new CustomSymbolDrawerController()
+	private readonly customSymbolSaveController = new CustomSymbolSaveController()
+	private readonly symbolLibraryMenuController = new SymbolLibraryMenuController()
 
 	public designName: TextProperty
 	public pendingLoadData: SaveFileFormat | null = null
@@ -125,7 +131,6 @@ export class MainController {
 	private readonly customSymbolApplicationService: CustomSymbolApplicationService =
 		this.appRuntime.createCustomSymbolApplicationService(() => this.db)
 	private readonly symbolLibraryService = this.appRuntime.createSymbolLibraryService()
-	private readonly customSymbolService: CustomSymbolService = this.appRuntime.createCustomSymbolService(() => this.db)
 
 	/**
 	 * Init the app.
@@ -1148,6 +1153,18 @@ export class MainController {
 				addButton.addEventListener("contextmenu", async (ev) => {
 					ev.preventDefault()
 					ev.stopPropagation()
+					const action = await this.symbolLibraryMenuController.openForSymbol({
+						clientX: ev.clientX,
+						clientY: ev.clientY,
+						symbolName: symbol.tikzName,
+						isCustomSymbol: !!symbol.isCustomSymbol,
+						categoryNames: this.customCategories.map((category) => category.name),
+						openPrompt: (title, message, defaultValue) => this.openPrompt(title, message, defaultValue),
+						openRenameModal: (title, currentName) => this.openRenameModal(title, currentName),
+						openConfirm: (title, body) => this.openConfirm(title, body),
+					})
+					await this.handleSymbolLibraryMenuAction(symbol, action)
+					return
 					if (!symbol.isCustomSymbol && this.customCategories.length === 0) {
 						const name = await this.openPrompt(
 							"Create Category",
@@ -1480,8 +1497,7 @@ export class MainController {
 		if (!symbolsSVGElement) return
 
 		const state = await this.customSymbolApplicationService.loadRuntimeSymbols(symbolsSVGElement, this.symbols)
-		this.customCategories = state.customCategories
-		this.customSymbols = state.customSymbols
+		this.applyCustomSymbolState(state)
 	}
 
 	public async duplicateSymbol(originalSymbol: ComponentSymbol, newTikzName: string, categoryName: string) {
@@ -1499,9 +1515,8 @@ export class MainController {
 			return
 		}
 
-		this.customCategories = state.customCategories
-		this.customSymbols = state.customSymbols
-		this.loadAndRenderCustomCategories()
+		this.applyCustomSymbolState(state)
+		this.renderCustomCategories()
 	}
 
 	public async renameCustomGraphicsSymbol(oldTikzName: string, newTikzName: string) {
@@ -1515,16 +1530,14 @@ export class MainController {
 		)
 		if (state === "no-op" || state === "missing-dom") return
 
-		this.customCategories = state.customCategories
-		this.customSymbols = state.customSymbols
-		this.loadAndRenderCustomCategories()
+		this.applyCustomSymbolState(state)
+		this.renderCustomCategories()
 	}
 
 	public async deleteCustomGraphicsSymbol(tikzName: string) {
 		const state = await this.customSymbolApplicationService.deleteGraphicsSymbol(tikzName, this.symbols, this.customSymbols)
-		this.customCategories = state.customCategories
-		this.customSymbols = state.customSymbols
-		this.loadAndRenderCustomCategories()
+		this.applyCustomSymbolState(state)
+		this.renderCustomCategories()
 	}
 
 	public customCategories: { name: string; symbolIds: string[] }[] = []
@@ -1532,257 +1545,67 @@ export class MainController {
 
 	public async loadAndRenderCustomCategories() {
 		const state = await this.customSymbolApplicationService.loadState()
+		this.applyCustomSymbolState(state)
+		this.renderCustomCategories()
+	}
+
+	private applyCustomSymbolState(state: { customCategories: { name: string; symbolIds: string[] }[]; customSymbols: CustomSymbolRecord[] }) {
 		this.customCategories = state.customCategories
 		this.customSymbols = state.customSymbols
+	}
 
-		const leftOffcanvasAccordion = document.getElementById("leftOffcanvasAccordion") as HTMLDivElement
-		const leftOffcanvas: HTMLDivElement = document.getElementById("leftOffcanvas") as HTMLDivElement
+	private renderCustomCategories() {
+		const leftOffcanvas = document.getElementById("leftOffcanvas") as HTMLDivElement
 		const leftOffcanvasOC = new Offcanvas(leftOffcanvas)
-
-		// Remove any existing custom category accordion items
-		const existingCustoms = leftOffcanvasAccordion.getElementsByClassName("custom-category-accordion-item")
-		while (existingCustoms.length > 0) {
-			existingCustoms[0].remove()
-		}
-
-		// Render each custom category
-		for (const cat of this.customCategories) {
-			const collapseGroupID = "collapseGroup-custom-" + cat.name.replace(/[^\d\w\-\_]+/gi, "-")
-
-			const accordionGroup = document.createElement("div")
-			accordionGroup.classList.add("accordion-item", "custom-category-accordion-item")
-
-			const accordionItemHeader = accordionGroup.appendChild(document.createElement("h2"))
-			accordionItemHeader.classList.add("accordion-header")
-
-			// Header button
-			const accordionItemButton = accordionItemHeader.appendChild(document.createElement("button"))
-			accordionItemButton.classList.add("accordion-button")
-			accordionItemButton.innerText = cat.name
-			accordionItemButton.setAttribute("aria-controls", collapseGroupID)
-			accordionItemButton.setAttribute("aria-expanded", "true")
-			accordionItemButton.setAttribute("data-bs-target", "#" + collapseGroupID)
-			accordionItemButton.setAttribute("data-bs-toggle", "collapse")
-			accordionItemButton.type = "button"
-
-			// Context menu for category header (e.g. Rename / Delete category)
-			accordionItemButton.addEventListener("contextmenu", (ev) => {
-				ev.preventDefault()
-				ev.stopPropagation()
-				const menu = new ContextMenu([
-					{ result: "rename", iconText: "edit", text: "Rename category..." },
-					{ result: "delete", iconText: "delete", text: `Delete category "${cat.name}"` }
-				])
-				menu.openForResult(ev.clientX, ev.clientY).then(async (res) => {
-					if (res === "rename") {
-						const newName = await this.openRenameModal("Rename Category", cat.name)
-						if (newName) this.renameCustomCategory(cat.name, newName)
-					} else if (res === "delete") {
-						if (await this.openConfirm("Delete Category", `Are you sure you want to delete category "${cat.name}"?`)) {
-							this.deleteCustomCategory(cat.name)
-						}
-					}
-				}).catch(() => {})
-			})
-
-			const accordionItemCollapse = accordionGroup.appendChild(document.createElement("div"))
-			accordionItemCollapse.classList.add("accordion-collapse", "collapse", "show")
-			accordionItemCollapse.id = collapseGroupID
-			accordionItemCollapse.setAttribute("data-bs-parent", "#leftOffcanvasAccordion")
-
-			const accordionItemBody = accordionItemCollapse.appendChild(document.createElement("div"))
-			accordionItemBody.classList.add("accordion-body", "iconLibAccordionBody")
-
-			for (const symbolId of cat.symbolIds) {
-				const standardSymbol = this.symbols.find(s => s.tikzName === symbolId)
-				const customSymbol = this.customSymbols.find(s => s.id === symbolId || s.id === "custom-" + symbolId)
-
-				if (!standardSymbol && !customSymbol) continue
-
-				const addButton: HTMLDivElement = accordionItemBody.appendChild(document.createElement("div"))
-				addButton.classList.add("libComponent")
-				addButton.ariaRoleDescription = "button"
-
-				// Context menu for symbol inside custom category
-				addButton.addEventListener("contextmenu", (ev) => {
-					ev.preventDefault()
-					ev.stopPropagation()
-					if (customSymbol) {
-						if (customSymbol.isCustomSymbol) {
-							// Custom graphics symbol: edit / rename / remove / delete
-							const menu = new ContextMenu([
-								{ result: "edit", iconText: "edit", text: "Edit Symbol..." },
-								{ result: "rename", iconText: "drive_file_rename_outline", text: "Rename symbol..." },
-								{ result: "remove", iconText: "playlist_remove", text: "Remove from this category" },
-								{ result: "delete", iconText: "delete", text: "Delete custom symbol definition" }
-							])
-							menu.openForResult(ev.clientX, ev.clientY).then(async (res) => {
-								if (res === "edit") {
-									SymbolEditorController.instance.open(customSymbol.id)
-								} else if (res === "rename") {
-									const newName = await this.openRenameModal("Rename Custom Symbol", symbolId)
-									if (newName) this.renameCustomGraphicsSymbol(symbolId, newName)
-								} else if (res === "remove") {
-									this.removeSymbolFromCategory(cat.name, symbolId)
-								} else if (res === "delete") {
-									if (await this.openConfirm(
-										"Delete Symbol",
-										`Are you sure you want to completely delete custom symbol "${symbolId}"?\n(Components already placed on the canvas will not be affected)`
-									)) {
-										this.deleteCustomGraphicsSymbol(symbolId)
-									}
-								}
-							}).catch(() => {})
-						} else {
-							// Subcircuit: rename / remove / delete all
-							const menu = new ContextMenu([
-								{ result: "rename", iconText: "edit", text: "Rename subcircuit..." },
-								{ result: "remove", iconText: "playlist_remove", text: "Remove from this category" },
-								{ result: "delete", iconText: "delete", text: "Delete subcircuit definition" }
-							])
-							menu.openForResult(ev.clientX, ev.clientY).then(async (res) => {
-								if (res === "rename") {
-									const newName = await this.openRenameModal("Rename Subcircuit", customSymbol.displayName)
-									if (newName) this.renameCustomSymbol(customSymbol.id, newName)
-								} else if (res === "remove") {
-									this.removeSymbolFromCategory(cat.name, symbolId)
-								} else if (res === "delete") {
-									if (await this.openConfirm(
-										"Delete Subcircuit",
-										`Are you sure you want to completely delete subcircuit "${customSymbol.displayName}"?\n(Components already placed on the canvas will not be affected)`
-									)) {
-										this.deleteCustomSymbol(symbolId)
-									}
-								}
-							}).catch(() => {})
-						}
-					} else {
-						// Standard symbol: only remove from category
-						const menu = new ContextMenu([
-							{ result: "remove", iconText: "playlist_remove", text: "Remove from this category" }
-						])
-						menu.openForResult(ev.clientX, ev.clientY).then((res) => {
-							if (res === "remove") this.removeSymbolFromCategory(cat.name, symbolId)
-						}).catch(() => {})
-					}
-				})
-
-				if (standardSymbol) {
-					addButton.setAttribute("searchData", [standardSymbol.tikzName, standardSymbol.isNodeSymbol ? "node" : "path"].join(" "))
-					addButton.title = standardSymbol.displayName || standardSymbol.tikzName
-
-					const listener = (ev: MouseEvent) => {
-						if (ev.button !== 0) return
-						ev.preventDefault()
-						this.switchMode(Modes.COMPONENT)
-						if (ComponentPlacer.instance.component) {
-							ComponentPlacer.instance.placeCancel()
-						}
-						let newComponent: CircuitComponent
-						if (standardSymbol.isNodeSymbol) {
-							newComponent = new NodeSymbolComponent(standardSymbol)
-						} else {
-							newComponent = new PathSymbolComponent(standardSymbol)
-						}
-						ComponentPlacer.instance.placeComponent(newComponent)
-						leftOffcanvasOC.hide()
-					}
-					addButton.addEventListener("mouseup", listener)
-					addButton.addEventListener("touchstart", listener, { passive: false })
-
-					// Visio style double-click to edit custom symbol
-					addButton.addEventListener("dblclick", (ev) => {
-						ev.preventDefault()
-						ev.stopPropagation()
-						if (customSymbol && customSymbol.isCustomSymbol) {
-							SymbolEditorController.instance.open(customSymbol.id)
-						}
-					})
-
-					let svgIcon = SVG.SVG().addTo(addButton)
-					let firstVariant = standardSymbol._mapping.values().toArray()[0]
-					let viewBox = new SVG.Box(firstVariant ? firstVariant.viewBox : new SVG.Box(0, 0, 30, 15))
-					let maxStroke = Number.isFinite(standardSymbol.maxStroke) ? standardSymbol.maxStroke : 0
-					viewBox.width += maxStroke
-					viewBox.height += maxStroke
-					viewBox.x -= maxStroke / 2
-					viewBox.y -= maxStroke / 2
-					if (!Number.isFinite(viewBox.x) || !Number.isFinite(viewBox.y) || !Number.isFinite(viewBox.w) || !Number.isFinite(viewBox.h)) {
-						viewBox = new SVG.Box(0, 0, 30, 15)
-					}
-					svgIcon.viewbox(viewBox).width(viewBox.width).height(viewBox.height)
-					let use = svgIcon.use(standardSymbol.symbolElement.id())
-					use.width(standardSymbol.viewBox.width).height(standardSymbol.viewBox.height)
-					use.stroke(defaultStroke).fill(defaultFill).node.style.color = defaultStroke
-				} else if (customSymbol) {
-					addButton.setAttribute("searchData", customSymbol.displayName || customSymbol.tikzName)
-					addButton.title = customSymbol.displayName
-
-					const listener = (ev: MouseEvent) => {
-						if (ev.button !== 0) return
-						ev.preventDefault()
-						this.switchMode(Modes.COMPONENT)
-						if (ComponentPlacer.instance.component) {
-							ComponentPlacer.instance.placeCancel()
-						}
-						const sub = SubcircuitComponent.fromJson(customSymbol.subcircuitData)
-						ComponentPlacer.instance.placeComponent(sub)
-						leftOffcanvasOC.hide()
-					}
-					addButton.addEventListener("mouseup", listener)
-					addButton.addEventListener("touchstart", listener, { passive: false })
-
-					// Invalidate stale preview (legacy: contained <use> referencing doc-level defs)
-					if (customSymbol.svgPreview && customSymbol.svgPreview.includes("<use ")) {
-						customSymbol.svgPreview = null
-					}
-					if (customSymbol.svgPreview) {
-						addButton.innerHTML = customSymbol.svgPreview
-					} else {
-						// Generate preview on the fly and save to DB
-						this.generateSubcircuitSvgPreview(customSymbol.subcircuitData).then((preview) => {
-							if (preview) {
-								customSymbol.svgPreview = preview
-								addButton.innerHTML = preview
-								this.customSymbolService.putCustomSymbol(customSymbol)
-							} else {
-								// fallback to original placeholder
-								let svgIcon = SVG.SVG().addTo(addButton)
-								svgIcon.viewbox(0, 0, 30, 15).width(30).height(15)
-								// Draw a cute Visio style block
-								svgIcon.rect(26, 12).move(2, 1.5).fill("none").stroke({ color: defaultStroke, width: 1 })
-								svgIcon.text((add) => {
-									add.tspan(customSymbol.displayName.substring(0, 4)).font({ size: 6 }).fill({ color: defaultStroke }).move(5, 9)
-								})
-							}
-						})
-					}
+		this.customSymbolDrawerController.render(this.customCategories, this.customSymbols, this.symbols, {
+			hideDrawer: () => leftOffcanvasOC.hide(),
+			openRenameModal: (title, currentName) => this.openRenameModal(title, currentName),
+			openConfirm: (title, body) => this.openConfirm(title, body),
+			renameCategory: (oldName, newName) => { void this.renameCustomCategory(oldName, newName) },
+			deleteCategory: (name) => { void this.deleteCustomCategory(name) },
+			removeSymbolFromCategory: (categoryName, symbolId) => { void this.removeSymbolFromCategory(categoryName, symbolId) },
+			openSymbolEditor: (symbolId) => SymbolEditorController.instance.open(symbolId),
+			renameGraphicsSymbol: (oldName, newName) => { void this.renameCustomGraphicsSymbol(oldName, newName) },
+			deleteGraphicsSymbol: (symbolId) => { void this.deleteCustomGraphicsSymbol(symbolId) },
+			renameSubcircuit: (symbolId, newName) => { void this.renameCustomSymbol(symbolId, newName) },
+			deleteSubcircuit: (symbolId) => { void this.deleteCustomSymbol(symbolId) },
+			placeStandardSymbol: (standardSymbol) => {
+				this.switchMode(Modes.COMPONENT)
+				if (ComponentPlacer.instance.component) {
+					ComponentPlacer.instance.placeCancel()
 				}
-			}
-
-			// Prepend custom categories to accordion so they appear at the top of the Symbols drawer!
-			if (leftOffcanvasAccordion.firstChild) {
-				leftOffcanvasAccordion.insertBefore(accordionGroup, leftOffcanvasAccordion.firstChild)
-			} else {
-				leftOffcanvasAccordion.appendChild(accordionGroup)
-			}
-		}
+				let newComponent: CircuitComponent
+				if (standardSymbol.isNodeSymbol) {
+					newComponent = new NodeSymbolComponent(standardSymbol)
+				} else {
+					newComponent = new PathSymbolComponent(standardSymbol)
+				}
+				ComponentPlacer.instance.placeComponent(newComponent)
+			},
+			placeSubcircuit: (customSymbol) => {
+				this.switchMode(Modes.COMPONENT)
+				if (ComponentPlacer.instance.component) {
+					ComponentPlacer.instance.placeCancel()
+				}
+				ComponentPlacer.instance.placeComponent(SubcircuitComponent.fromJson(customSymbol.subcircuitData))
+			},
+			generateSubcircuitPreview: (subcircuitData) => this.generateSubcircuitSvgPreview(subcircuitData),
+			persistCustomSymbol: (customSymbol) => this.customSymbolApplicationService.putCustomSymbol(customSymbol),
+		})
 	}
 
 	public async addCustomCategory(name: string) {
 		name = name.trim()
 		if (!name) return
 		const state = await this.customSymbolApplicationService.addCategory(name)
-		this.customCategories = state.customCategories
-		this.customSymbols = state.customSymbols
-		this.loadAndRenderCustomCategories()
+		this.applyCustomSymbolState(state)
+		this.renderCustomCategories()
 	}
 
 	public async deleteCustomCategory(name: string) {
 		const state = await this.customSymbolApplicationService.deleteCategory(name)
-		this.customCategories = state.customCategories
-		this.customSymbols = state.customSymbols
-		this.loadAndRenderCustomCategories()
+		this.applyCustomSymbolState(state)
+		this.renderCustomCategories()
 	}
 
 	/**
@@ -1951,9 +1774,8 @@ export class MainController {
 	public async renameCustomCategory(oldName: string, newName: string) {
 		const state = await this.customSymbolApplicationService.renameCategory(oldName, newName)
 		if (state === "no-op") return
-		this.customCategories = state.customCategories
-		this.customSymbols = state.customSymbols
-		this.loadAndRenderCustomCategories()
+		this.applyCustomSymbolState(state)
+		this.renderCustomCategories()
 	}
 
 	/**
@@ -1968,9 +1790,8 @@ export class MainController {
 			this.circuitComponents
 		)
 		if (state === "no-op" || state === "missing") return
-		this.customCategories = state.customCategories
-		this.customSymbols = state.customSymbols
-		this.loadAndRenderCustomCategories()
+		this.applyCustomSymbolState(state)
+		this.renderCustomCategories()
 	}
 
 	/**
@@ -1980,23 +1801,55 @@ export class MainController {
 	 */
 	public async deleteCustomSymbol(symbolId: string) {
 		const state = await this.customSymbolApplicationService.deleteCustomSymbol(symbolId, this.customSymbols)
-		this.customCategories = state.customCategories
-		this.customSymbols = state.customSymbols
-		this.loadAndRenderCustomCategories()
+		this.applyCustomSymbolState(state)
+		this.renderCustomCategories()
 	}
 
 	public async addSymbolToCategory(categoryName: string, symbolId: string, customSymbolData?: CustomSymbolRecord) {
 		const state = await this.customSymbolApplicationService.addSymbolToCategory(categoryName, symbolId, customSymbolData)
-		this.customCategories = state.customCategories
-		this.customSymbols = state.customSymbols
-		this.loadAndRenderCustomCategories()
+		this.applyCustomSymbolState(state)
+		this.renderCustomCategories()
 	}
 
 	public async removeSymbolFromCategory(categoryName: string, symbolId: string) {
 		const state = await this.customSymbolApplicationService.removeSymbolFromCategory(categoryName, symbolId)
-		this.customCategories = state.customCategories
-		this.customSymbols = state.customSymbols
-		this.loadAndRenderCustomCategories()
+		this.applyCustomSymbolState(state)
+		this.renderCustomCategories()
+	}
+
+	private async handleSymbolLibraryMenuAction(symbol: ComponentSymbol, action: {
+		type: "none" | "edit" | "rename" | "delete" | "add-to-category" | "create-category-and-add" | "duplicate"
+		newName?: string
+		categoryName?: string
+	}) {
+		if (action.type === "none") return
+		if (action.type === "edit") {
+			SymbolEditorController.instance.open("custom-" + symbol.tikzName)
+			return
+		}
+		if (action.type === "rename" && action.newName) {
+			await this.renameCustomGraphicsSymbol(symbol.tikzName, action.newName)
+			return
+		}
+		if (action.type === "delete") {
+			await this.deleteCustomGraphicsSymbol(symbol.tikzName)
+			return
+		}
+		if (action.type === "add-to-category" && action.categoryName) {
+			await this.addSymbolToCategory(action.categoryName, symbol.tikzName)
+			return
+		}
+		if (action.type === "create-category-and-add" && action.categoryName) {
+			await this.addCustomCategory(action.categoryName)
+			await this.addSymbolToCategory(action.categoryName, symbol.tikzName)
+			return
+		}
+		if (action.type === "duplicate" && action.newName && action.categoryName) {
+			if (!this.customCategories.some((category) => category.name === action.categoryName)) {
+				await this.addCustomCategory(action.categoryName)
+			}
+			await this.duplicateSymbol(symbol, action.newName, action.categoryName)
+		}
 	}
 
 	public async putCustomSymbolRecord(customSymbol: CustomSymbolRecord): Promise<void> {
@@ -2025,7 +1878,14 @@ export class MainController {
 			}
 		}
 
-		this.openSaveSymbolModal(groupComp)
+		const saveRequest = await this.customSymbolSaveController.open({
+			initialName: groupComp.displayName !== "Group" ? groupComp.displayName : "",
+			categories: this.customCategories.map((category) => category.name),
+			showAlert: (title, body) => this.openAlert(title, body),
+		})
+		if (!saveRequest) return
+
+		await this.saveGroupedSelectionAsCustomSymbol(groupComp, saveRequest.name, saveRequest.categoryName)
 	}
 
 	private openSaveSymbolModal(group: GroupComponent) {
@@ -2126,6 +1986,30 @@ export class MainController {
 		}, { once: true })
 
 		bsModal.show()
+	}
+
+	private async saveGroupedSelectionAsCustomSymbol(group: GroupComponent, name: string, categoryName: string) {
+		if (!this.customCategories.some((category) => category.name === categoryName)) {
+			await this.addCustomCategory(categoryName)
+		}
+
+		const idx = this.circuitComponents.indexOf(group)
+		if (idx === -1) {
+			await this.openAlert("Save Custom Component", "Cannot find the group object; unable to save.")
+			return
+		}
+
+		const children = [...group.groupedComponents]
+		this.circuitComponents.splice(idx, 1, ...children)
+		group.groupedComponents = []
+		group.selectionElement?.remove()
+		group.visualization.remove()
+
+		const subJson = new SubcircuitComponent(name, children).toJson()
+		const customSymbolData = this.customSymbolApplicationService.buildSubcircuitRecord(name, subJson, this.customSymbols)
+		await this.addSymbolToCategory(categoryName, customSymbolData.id, customSymbolData)
+
+		Undo.addState()
 	}
 
 	private async generateSubcircuitSvgPreview(subcircuitData: any): Promise<string | null> {

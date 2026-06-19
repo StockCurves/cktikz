@@ -239,7 +239,12 @@ describe("MainController.renameCustomGraphicsSymbol", () => {
 			symbols: [oldRuntimeSymbol],
 			customSymbols: [{ id: oldSymbolRecord.id, tikzName: "old mos" }],
 			circuitComponents: [renamedComponent],
-			loadAndRenderCustomCategories: vi.fn(),
+			customCategories: [{ name: "My Favorite", symbolIds: ["old mos"] }],
+			applyCustomSymbolState(state: { customCategories: FakeCategory[]; customSymbols: any[] }) {
+				this.customCategories = state.customCategories
+				this.customSymbols = state.customSymbols
+			},
+			renderCustomCategories: vi.fn(),
 		}
 
 		await MainController.prototype.renameCustomGraphicsSymbol.call(context, "old mos", "new mos")
@@ -262,6 +267,6 @@ describe("MainController.renameCustomGraphicsSymbol", () => {
 		expect(document.querySelector(`component[tikz="old mos"]`)).toBeNull()
 		expect(document.getElementById("node_new mos")).not.toBeNull()
 		expect(document.querySelector(`component[tikz="new mos"]`)).not.toBeNull()
-		expect(context.loadAndRenderCustomCategories).toHaveBeenCalledTimes(1)
+		expect(context.renderCustomCategories).toHaveBeenCalledTimes(1)
 	})
 })
