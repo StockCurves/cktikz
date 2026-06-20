@@ -1623,8 +1623,6 @@ export class MainController {
 		})
 		if (!groupComp) return
 
-			// 先將複數元件進行 Group
-
 		const saveRequest = await this.customSymbolSaveController.open({
 			initialName: groupComp.displayName !== "Group" ? groupComp.displayName : "",
 			categories: this.customCategories.map((category) => category.name),
@@ -1634,87 +1632,11 @@ export class MainController {
 
 		await this.saveGroupedSelectionAsCustomSymbol(groupComp, saveRequest.name, saveRequest.categoryName)
 	}
-
-	
-
-/*
-		if (this.customCategories.length === 0) {
-			const opt = document.createElement("option")
-			opt.value = "我的最愛"
-			opt.textContent = "我的最愛"
-			categorySelect.appendChild(opt)
-		}
-
-		const newCatOpt = document.createElement("option")
-		newCatOpt.value = "__NEW_CATEGORY__"
-		newCatOpt.textContent = "+ 新增分類..."
-		categorySelect.appendChild(newCatOpt)
-
-
-			let name = nameInput.value.trim()
-			if (!name) {
-				await this.openAlert("Save Custom Component", "Please enter a component name.")
-				return
-			}
-
-			let categoryName = categorySelect.value
-			if (categoryName === "__NEW_CATEGORY__") {
-				categoryName = newCategoryInput.value.trim()
-				if (!categoryName) {
-					await this.openAlert("Save Custom Component", "Please enter a new category name.")
-					return
-				}
-				if (!this.customCategories.some(c => c.name === categoryName)) {
-					await this.addCustomCategory(categoryName)
-				}
-			}
-
-			const idx = this.circuitComponents.indexOf(group)
-			if (idx === -1) {
-				await this.openAlert("Save Custom Component", "Cannot find the group object; unable to save.")
-				bsModal.hide()
-				return
-			}
-
-			const children = [...group.groupedComponents]
-			
-			// 移除 GroupComponent，但把子元件先放回 circuitComponents
-			this.circuitComponents.splice(idx, 1, ...children)
-			group.groupedComponents = []
-			group.selectionElement?.remove()
-			group.visualization.remove()
-
-			// 建立 SubcircuitComponent
-			const subJson = new SubcircuitComponent(name, children).toJson()
-			const customSymbolData = this.customSymbolApplicationService.buildSubcircuitRecord(name, subJson, this.customSymbols)
-			await this.addSymbolToCategory(categoryName, customSymbolData.id, customSymbolData)
-
-			Undo.addState()
-			bsModal.hide()
-		}
-
-		modalEl.addEventListener("hidden.bs.modal", cleanup, { once: true })
-		modalEl.addEventListener("shown.bs.modal", () => {
-			nameInput.focus()
-			nameInput.select()
-		}, { once: true })
-
-		bsModal.show()
-	}
-
-*/
 	private async saveGroupedSelectionAsCustomSymbol(group: GroupComponent, name: string, categoryName: string) {
-		const idx = this.circuitComponents.indexOf(group)
-		if (idx === -1) {
-			await this.openAlert("Save Custom Component", "Cannot find the group object; unable to save.")
+		const children = this.restoreGroupedSelection(group)
+		if (!children) {
 			return
 		}
-
-		const children = [...group.groupedComponents]
-		this.circuitComponents.splice(idx, 1, ...children)
-		group.groupedComponents = []
-		group.selectionElement?.remove()
-		group.visualization.remove()
 
 		const subJson = new SubcircuitComponent(name, children).toJson()
 		const state = await this.customSymbolApplicationService.saveSubcircuitRecord(
@@ -1727,6 +1649,21 @@ export class MainController {
 		applyAndRenderCustomSymbolState(this, state)
 
 		Undo.addState()
+	}
+
+	private restoreGroupedSelection(group: GroupComponent): GroupComponent[] | null {
+		const idx = this.circuitComponents.indexOf(group)
+		if (idx === -1) {
+			void this.openAlert("Save Custom Component", "Cannot find the group object; unable to save.")
+			return null
+		}
+
+		const children = [...group.groupedComponents]
+		this.circuitComponents.splice(idx, 1, ...children)
+		group.groupedComponents = []
+		group.selectionElement?.remove()
+		group.visualization.remove()
+		return children
 	}
 
 	private async generateSubcircuitSvgPreview(subcircuitData: any): Promise<string | null> {
