@@ -753,20 +753,6 @@ export class MainController {
 			"leftOffcanvasAccordion"
 		) as HTMLDivElement
 
-		const groupedSymbols: Map<string, ComponentSymbol[]> = this.symbols.reduce(
-			(
-				groupedSymbols: Map<string, ComponentSymbol[]>,
-				symbol: ComponentSymbol
-			): Map<string, ComponentSymbol[]> => {
-				const key = symbol.groupName || "Unsorted components"
-				let group = groupedSymbols.get(key)
-				if (group) group.push(symbol)
-				else groupedSymbols.set(key, [symbol])
-				return groupedSymbols
-			},
-			new Map()
-		)
-
 		this.shapeLibraryController.render(leftOffcanvasAccordion, {
 			hideDrawer: () => leftOffcanvasOC.hide(),
 			switchToPanMode: () => this.switchMode(Modes.DRAG_PAN),
@@ -779,7 +765,7 @@ export class MainController {
 			placeComponent: (component) => ComponentPlacer.instance.placeComponent(component),
 		})
 		await this.loadAndRenderCustomCategories()
-		this.componentLibraryController.render(leftOffcanvasAccordion, groupedSymbols, {
+		this.componentLibraryController.render(leftOffcanvasAccordion, this.symbols, {
 			hideDrawer: () => leftOffcanvasOC.hide(),
 			switchToComponentMode: () => this.switchMode(Modes.COMPONENT),
 			cancelComponentPlacement: () => {

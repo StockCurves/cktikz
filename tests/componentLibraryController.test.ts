@@ -113,10 +113,11 @@ describe("ComponentLibraryController", () => {
 		const root = document.getElementById("leftOffcanvasAccordion") as HTMLDivElement
 		controller.render(
 			root,
-			new Map([
-				["Analog", [makeSymbol({ tikzName: "opamp", displayName: "OpAmp" }), makeSymbol({ tikzName: "vcc", displayName: "VCC" })]],
-				["Power", [makeSymbol({ tikzName: "gnd", displayName: "GND" })]],
-			]),
+			[
+				makeSymbol({ groupName: "Analog", tikzName: "opamp", displayName: "OpAmp" }),
+				makeSymbol({ groupName: "Analog", tikzName: "vcc", displayName: "VCC" }),
+				makeSymbol({ groupName: "Power", tikzName: "gnd", displayName: "GND" }),
+			],
 			{
 				hideDrawer: vi.fn(),
 				switchToComponentMode: vi.fn(),
@@ -136,7 +137,10 @@ describe("ComponentLibraryController", () => {
 		const root = document.getElementById("leftOffcanvasAccordion") as HTMLDivElement
 		controller.render(
 			root,
-			new Map([["Analog", [makeSymbol({ tikzName: "opamp", displayName: "OpAmp" })]], ["Power", [makeSymbol({ tikzName: "gnd", displayName: "Ground" })]]]),
+			[
+				makeSymbol({ groupName: "Analog", tikzName: "opamp", displayName: "OpAmp" }),
+				makeSymbol({ groupName: "Power", tikzName: "gnd", displayName: "Ground" }),
+			],
 			{
 				hideDrawer: vi.fn(),
 				switchToComponentMode: vi.fn(),
@@ -165,7 +169,7 @@ describe("ComponentLibraryController", () => {
 		const placeComponent = vi.fn()
 		const openContextMenu = vi.fn(async () => {})
 
-		controller.render(root, new Map([["Analog", [makeSymbol()]]]), {
+		controller.render(root, [makeSymbol()], {
 			hideDrawer,
 			switchToComponentMode,
 			cancelComponentPlacement,

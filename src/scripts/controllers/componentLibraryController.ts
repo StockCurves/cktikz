@@ -17,12 +17,22 @@ export type ComponentLibraryCallbacks = {
 }
 
 export class ComponentLibraryController {
-	public render(
-		leftOffcanvasAccordion: HTMLDivElement,
-		groupedSymbols: Map<string, ComponentSymbol[]>,
-		callbacks: ComponentLibraryCallbacks
-	): void {
-		for (const [groupName, symbols] of groupedSymbols.entries()) {
+	public render(leftOffcanvasAccordion: HTMLDivElement, symbols: ComponentSymbol[], callbacks: ComponentLibraryCallbacks): void {
+		const groupedSymbols = symbols.reduce(
+			(grouped: Map<string, ComponentSymbol[]>, symbol) => {
+				const groupName = symbol.groupName || "Unsorted components"
+				const group = grouped.get(groupName)
+				if (group) {
+					group.push(symbol)
+				} else {
+					grouped.set(groupName, [symbol])
+				}
+				return grouped
+			},
+			new Map<string, ComponentSymbol[]>()
+		)
+
+		for (const [groupName, groupedSymbolsInGroup] of groupedSymbols.entries()) {
 			const collapseGroupID = "collapseGroup-" + groupName.replace(/[^\d\w\-\_]+/gi, "-")
 
 			const accordionGroup = leftOffcanvasAccordion.appendChild(document.createElement("div"))
@@ -48,7 +58,7 @@ export class ComponentLibraryController {
 			const accordionItemBody = accordionItemCollapse.appendChild(document.createElement("div"))
 			accordionItemBody.classList.add("accordion-body", "iconLibAccordionBody")
 
-			for (const symbol of symbols) {
+			for (const symbol of groupedSymbolsInGroup) {
 				this.renderSymbolButton(accordionItemBody, symbol, callbacks)
 			}
 		}
