@@ -1,0 +1,9 @@
+\begin{circuitikz}[american]
+  \draw (0,3) to[sinusoidal voltage source, l=$V_{in}$] (0,0);
+  \draw (0,0) node[ground] {};
+  \draw (5,2.5) node[op amp] (OA) {};
+  \draw (0,3) to[R, l=$R_1$] (OA.-);
+  \draw (OA.+) -- (4,2) node[ground] {};
+  \draw (OA.-) -- (3.75,4.5) to[R, l=$R_f$] (6.25,4.5) -- (OA.out);
+  \draw (OA.out) to[short, *-o] (7.5,2.5) node[right] {$V_{out}$};
+\end{circuitikz}

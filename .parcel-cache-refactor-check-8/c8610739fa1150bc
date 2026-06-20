@@ -1,0 +1,11 @@
+\begin{circuitikz}[american]
+  \draw (0,0) to[sinusoidal voltage source, l=$V_s$] (0,4);
+  \draw (0,4) -- (2,4);
+  \draw (0,0) -- (2,0);
+  \draw (2,4) to[D, l=$D_1$] (4,2);
+  \draw (2,0) to[D, l=$D_2$] (4,2);
+  \draw (4,2) to[R, l=$R_L$] (4,-1);
+  \draw (4,-1) -- (2,-1);
+  \draw (2,-1) to[D, l=$D_3$] (2,0);
+  \draw (2,0) to[D, l=$D_4$] (0,0);
+\end{circuitikz}

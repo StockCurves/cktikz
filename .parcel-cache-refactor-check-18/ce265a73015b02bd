@@ -1,0 +1,9 @@
+\begin{circuitikz}[american]
+  \draw (0,0) node[op amp] (opamp) {};
+  \draw (opamp.-) -- (-1.5, 0.5) -- (-1.5, 2) -- (1.5, 2) -- (opamp.out);
+  \draw (opamp.+) -- (-1.5, -0.5) to[C, l=$C_1$] (-1.5, -2) node[ground]{};
+  \draw (-4.5, -0.5) to[R, l=$R_1$] (-3, -0.5) to[R, l=$R_2$] (-1.5, -0.5);
+  \draw (-3, -0.5) to[C, l=$C_2$] (-3, 2) -- (-1.5, 2);
+  \draw (-4.5, -0.5) to[short, -o] (-5, -0.5) node[left] {$V_{in}$};
+  \draw (opamp.out) to[short, -o] (2.5, 0) node[right] {$V_{out}$};
+\end{circuitikz}
