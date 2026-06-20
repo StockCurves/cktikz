@@ -1165,36 +1165,7 @@ export class MainController {
 				addButton.addEventListener("touchstart", listener, { passive: false })
 
 				addButton.addEventListener("contextmenu", async (ev) => {
-					ev.preventDefault()
-					ev.stopPropagation()
-					const action = await this.symbolLibraryMenuController.openForSymbol({
-						clientX: ev.clientX,
-						clientY: ev.clientY,
-						symbolName: symbol.tikzName,
-						isCustomSymbol: !!symbol.isCustomSymbol,
-						categoryNames: this.customCategories.map((category) => category.name),
-						openPrompt: (title, message, defaultValue) => this.openPrompt(title, message, defaultValue),
-						openRenameModal: (title, currentName) => this.openRenameModal(title, currentName),
-						openConfirm: (title, body) => this.openConfirm(title, body),
-					})
-					await this.symbolLibraryMenuController.executeAction(action, {
-						symbolName: symbol.tikzName,
-						categoryNames: this.customCategories.map((category) => category.name),
-						openEditor: (symbolName) => {
-							SymbolEditorController.instance.open("custom-" + symbolName)
-						},
-						renameSymbol: (oldName, newName) => this.renameCustomGraphicsSymbol(oldName, newName),
-						deleteSymbol: (symbolName) => this.deleteCustomGraphicsSymbol(symbolName),
-						addCategory: (categoryName) => this.addCustomCategory(categoryName),
-						addToCategory: (categoryName, symbolName) => this.addSymbolToCategory(categoryName, symbolName),
-						duplicateSymbol: (symbolName, newName, categoryName) => {
-							const menuSymbol = symbolName === symbol.tikzName ? symbol : this.symbolsDB.get(symbolName)
-							if (!menuSymbol) return Promise.resolve()
-							return this.duplicateSymbol(menuSymbol, newName, categoryName)
-						},
-					})
-
-							// 選擇分類
+					await this.handleLibrarySymbolContextMenu(ev, symbol)
 				})
 
 				let svgIcon = SVG.SVG().addTo(addButton)
@@ -1432,6 +1403,40 @@ export class MainController {
 
 		const state = await this.customSymbolApplicationService.loadRuntimeSymbols(symbolsSVGElement, this.symbols)
 		this.applyCustomSymbolState(state)
+	}
+
+	private async handleLibrarySymbolContextMenu(symbolEvent: MouseEvent, symbol: ComponentSymbol) {
+		symbolEvent.preventDefault()
+		symbolEvent.stopPropagation()
+
+		const categoryNames = this.customCategories.map((category) => category.name)
+		const action = await this.symbolLibraryMenuController.openForSymbol({
+			clientX: symbolEvent.clientX,
+			clientY: symbolEvent.clientY,
+			symbolName: symbol.tikzName,
+			isCustomSymbol: !!symbol.isCustomSymbol,
+			categoryNames,
+			openPrompt: (title, message, defaultValue) => this.openPrompt(title, message, defaultValue),
+			openRenameModal: (title, currentName) => this.openRenameModal(title, currentName),
+			openConfirm: (title, body) => this.openConfirm(title, body),
+		})
+
+		await this.symbolLibraryMenuController.executeAction(action, {
+			symbolName: symbol.tikzName,
+			categoryNames,
+			openEditor: (symbolName) => {
+				SymbolEditorController.instance.open("custom-" + symbolName)
+			},
+			renameSymbol: (oldName, newName) => this.renameCustomGraphicsSymbol(oldName, newName),
+			deleteSymbol: (symbolName) => this.deleteCustomGraphicsSymbol(symbolName),
+			addCategory: (categoryName) => this.addCustomCategory(categoryName),
+			addToCategory: (categoryName, symbolName) => this.addSymbolToCategory(categoryName, symbolName),
+			duplicateSymbol: (symbolName, newName, categoryName) => {
+				const menuSymbol = symbolName === symbol.tikzName ? symbol : this.symbolsDB.get(symbolName)
+				if (!menuSymbol) return Promise.resolve()
+				return this.duplicateSymbol(menuSymbol, newName, categoryName)
+			},
+		})
 	}
 
 	public async duplicateSymbol(originalSymbol: ComponentSymbol, newTikzName: string, categoryName: string) {
