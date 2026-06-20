@@ -285,13 +285,13 @@ custom symbol 這條線目前已完成大半：
 - `SymbolLibraryService` 已建立
 - `CustomSymbolDrawerController` 已建立
 - `CustomSymbolSaveController` 已建立
-- `SymbolLibraryMenuController` 已建立
+- `SymbolLibraryMenuController` 已建立，且已接上 `openAndExecute()` 這種一站式 symbol menu 協調入口
 - `MainController.renameCustomGraphicsSymbol()` / `duplicateSymbol()` / `deleteCustomGraphicsSymbol()` 已改走 application service
 - base symbol DB 的 fetch / parse / append / runtime extract 已從 `MainController.initSymbolDB()` 移出
 
 但這一階段還沒完全結束，因為：
 
-- `MainController` 仍保有少量 custom symbol orchestration 與 callback wiring
+- `MainController` 仍保有少量 custom symbol state wrappers 與 callback wiring
 - `serverless latex adapter` 還沒接完
 - `api/latex.js` 已成為可切換 provider
 
