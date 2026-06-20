@@ -1,6 +1,5 @@
 import type { ComponentSymbol } from "../components/componentSymbol"
 import type { CircuitComponent } from "../components/circuitComponent"
-import type { CustomSymbolRecord } from "../services/customSymbolService"
 import { CustomSymbolApplicationService } from "../services/customSymbolApplicationService"
 import { CustomSymbolWorkspaceController } from "./customSymbolWorkspaceController"
 

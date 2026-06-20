@@ -11,6 +11,7 @@ import { CustomSymbolWorkspaceController } from "./customSymbolWorkspaceControll
 import { CustomSymbolSubcircuitSaveController } from "./customSymbolSubcircuitSaveController"
 import { CustomSymbolCatalogController } from "./customSymbolCatalogController"
 import { CustomSymbolGraphicsController } from "./customSymbolGraphicsController"
+import { SymbolLibraryBootstrapController } from "./symbolLibraryBootstrapController"
 import { SymbolLibraryMenuController } from "./symbolLibraryMenuController"
 import { ShapeLibraryController } from "./shapeLibraryController"
 import { ComponentLibraryController } from "./componentLibraryController"
@@ -189,6 +190,10 @@ export class MainController {
 	private readonly customSymbolApplicationService: CustomSymbolApplicationService =
 		this.appRuntime.createCustomSymbolApplicationService(() => this.db)
 	private readonly symbolLibraryService = this.appRuntime.createSymbolLibraryService()
+	private readonly symbolLibraryBootstrapController = new SymbolLibraryBootstrapController({
+		symbolLibraryService: this.symbolLibraryService,
+		customSymbolGraphicsController: this.customSymbolGraphicsController,
+	})
 
 	/**
 	 * Init the app.
@@ -730,7 +735,7 @@ export class MainController {
 	 * Fetch & parse the symbol(s) svg.
 	 */
 	private async initSymbolDB() {
-		const loadedLibrary = await this.symbolLibraryService.loadIntoDocument()
+		const loadedLibrary = await this.symbolLibraryBootstrapController.initializeSymbolLibrary()
 		this.symbolsSVG = loadedLibrary.symbolsSVG
 		this.symbols = loadedLibrary.symbols
 	}
@@ -958,7 +963,7 @@ export class MainController {
 	}
 
 	public async loadCustomSymbolsIntoSymbolDB() {
-		await this.customSymbolGraphicsController.loadCustomSymbolsIntoSymbolDB()
+		await this.symbolLibraryBootstrapController.loadCustomSymbolsIntoSymbolDB()
 	}
 
 	public async duplicateSymbol(originalSymbol: ComponentSymbol, newTikzName: string, categoryName: string) {
