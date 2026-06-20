@@ -10,6 +10,7 @@ import { CustomSymbolSaveController } from "./customSymbolSaveController"
 import { CustomSymbolSelectionController } from "./customSymbolSelectionController"
 import { SymbolLibraryMenuController } from "./symbolLibraryMenuController"
 import { CustomSymbolApplicationService } from "../services/customSymbolApplicationService"
+import { CustomSymbolExportService } from "../services/customSymbolExportService"
 import type { CustomSymbolRecord } from "../services/customSymbolService"
 import { ModalDialogService } from "../services/modalDialogService"
 import { getAppRuntime } from "../services/appRuntime"
@@ -127,6 +128,7 @@ export class MainController {
 	private readonly customSymbolSelectionController = new CustomSymbolSelectionController()
 	private readonly symbolLibraryMenuController = new SymbolLibraryMenuController()
 	private readonly modalDialogService = new ModalDialogService()
+	private readonly customSymbolExportService = new CustomSymbolExportService()
 
 	public designName: TextProperty
 	public pendingLoadData: SaveFileFormat | null = null
@@ -1671,245 +1673,15 @@ export class MainController {
 	}
 
 	public getCustomSubcircuitsTikzset(): string {
-		const subs = this.circuitComponents.filter(c => c.constructor.name === "SubcircuitComponent" || (c as any).groupedComponents && (c as any).displayName && c.toTikzString().includes("pic")) as SubcircuitComponent[]
-		if (subs.length === 0) return ""
-
-		const processed = new Set<string>()
-		const definitions: string[] = []
-
-		for (const sub of subs) {
-			if (processed.has(sub.displayName)) continue
-			processed.add(sub.displayName)
-
-			const originalPos = sub.position
-			const rel = new SVG.Point(0, 0).sub(originalPos)
-			for (const component of sub.groupedComponents) {
-				component.moveRel(rel)
-			}
-			const lines = sub.groupedComponents.map(c => "    " + c.toTikzString())
-			const relBack = originalPos.sub(new SVG.Point(0, 0))
-			for (const component of sub.groupedComponents) {
-				component.moveRel(relBack)
-			}
-
-			definitions.push(`  ${sub.displayName}/.pic={\n${lines.join("\n")}\n  }`)
-		}
-
-		return `\\tikzset{\n${definitions.join(",\n")}\n}`
+		return this.customSymbolExportService.getCustomSubcircuitsTikzset(this.circuitComponents as any)
 	}
 
 	public getCustomSymbolsTikzset(): string {
-		const customSymbolNames = new Set<string>()
-		for (const comp of this.circuitComponents) {
-			if ((comp as any).referenceSymbol && (comp as any).referenceSymbol.isCustomSymbol) {
-				customSymbolNames.add((comp as any).referenceSymbol.tikzName)
-			}
-		}
-
-		if (customSymbolNames.size === 0) return ""
-
-		function convertPathDToTikz(d: string, midPoint: SVG.Point): string {
-			console.log("[convertPathDToTikz] input d:", d)
-			const tokens = d.match(/[a-df-z]|-?\d*\.?\d+(e[-+]?\d+)?/ig) || []
-			let tikzPath = ""
-			let cx = 0, cy = 0
-			let startX = 0, startY = 0
-			let currentCmd = ""
-			let i = 0
-
-			const toTikzX = (x: number) => ((x - midPoint.x) * (127 / 4800)).toFixed(3)
-			const toTikzY = (y: number) => (-(y - midPoint.y) * (127 / 4800)).toFixed(3)
-
-			while (i < tokens.length) {
-				const token = tokens[i]
-				if (/[a-df-z]/i.test(token)) {
-					currentCmd = token
-					i++
-				} else {
-					if (!currentCmd) {
-						i++
-						continue
-					}
-				}
-
-				const isRelative = currentCmd === currentCmd.toLowerCase()
-				const upperCmd = currentCmd.toUpperCase()
-
-				if (upperCmd === "M") {
-					if (i + 1 < tokens.length) {
-						let nx = parseFloat(tokens[i])
-						let ny = parseFloat(tokens[i+1])
-						if (isNaN(nx) || isNaN(ny)) { i += 2; continue; }
-						if (isRelative) {
-							cx += nx
-							cy += ny
-						} else {
-							cx = nx
-							cy = ny
-						}
-						startX = cx
-						startY = cy
-						tikzPath += ` (${toTikzX(cx)}, ${toTikzY(cy)})`
-						i += 2
-						currentCmd = isRelative ? "l" : "L"
-					} else {
-						i++
-					}
-				} else if (upperCmd === "L") {
-					if (i + 1 < tokens.length) {
-						let nx = parseFloat(tokens[i])
-						let ny = parseFloat(tokens[i+1])
-						if (isNaN(nx) || isNaN(ny)) { i += 2; continue; }
-						if (isRelative) {
-							cx += nx
-							cy += ny
-						} else {
-							cx = nx
-							cy = ny
-						}
-						tikzPath += ` -- (${toTikzX(cx)}, ${toTikzY(cy)})`
-						i += 2
-					} else {
-						i++
-					}
-				} else if (upperCmd === "H") {
-					if (i < tokens.length) {
-						let nx = parseFloat(tokens[i])
-						if (isNaN(nx)) { i++; continue; }
-						if (isRelative) {
-							cx += nx
-						} else {
-							cx = nx
-						}
-						tikzPath += ` -- (${toTikzX(cx)}, ${toTikzY(cy)})`
-						i++
-					}
-				} else if (upperCmd === "V") {
-					if (i < tokens.length) {
-						let ny = parseFloat(tokens[i])
-						if (isNaN(ny)) { i++; continue; }
-						if (isRelative) {
-							cy += ny
-						} else {
-							cy = ny
-						}
-						tikzPath += ` -- (${toTikzX(cx)}, ${toTikzY(cy)})`
-						i++
-					}
-				} else if (upperCmd === "C") {
-					if (i + 5 < tokens.length) {
-						let x1 = parseFloat(tokens[i])
-						let y1 = parseFloat(tokens[i+1])
-						let x2 = parseFloat(tokens[i+2])
-						let y2 = parseFloat(tokens[i+3])
-						let x = parseFloat(tokens[i+4])
-						let y = parseFloat(tokens[i+5])
-						
-						if (isNaN(x1) || isNaN(y1) || isNaN(x2) || isNaN(y2) || isNaN(x) || isNaN(y)) {
-							i += 6
-							continue
-						}
-
-						if (isRelative) {
-							x1 += cx; y1 += cy
-							x2 += cx; y2 += cy
-							x += cx; y += cy
-						}
-						
-						tikzPath += ` .. controls (${toTikzX(x1)}, ${toTikzY(y1)}) and (${toTikzX(x2)}, ${toTikzY(y2)}) .. (${toTikzX(x)}, ${toTikzY(y)})`
-						cx = x
-						cy = y
-						i += 6
-					} else {
-						i++
-					}
-				} else if (upperCmd === "Z") {
-					tikzPath += " -- cycle"
-					cx = startX
-					cy = startY
-					i++
-				} else {
-					i++
-				}
-			}
-			const res = tikzPath.trim()
-			console.log("[convertPathDToTikz] output tikzPath:", res)
-			return res
-		}
-
-		const definitions: string[] = []
-
-		for (const tikzName of customSymbolNames) {
-			const customSymbol = this.customSymbols.find(s => s.tikzName === tikzName)
-			if (!customSymbol) continue
-
-			const baseSymbol = customSymbol.baseSymbol || (tikzName.toLowerCase().includes("pmos") ? "pmos" : "nmos")
-
-			const compSymbol = this.symbols.find(s => s.tikzName === tikzName)
-			if (compSymbol) {
-				const variants = Array.from(compSymbol._mapping.values())
-				const variant = variants[0]
-				if (variant && variant.symbol) {
-					const mid = variant.mid
-					const drawCommands: string[] = []
-
-					const collectDrawCommands = (node: Element) => {
-						const tag = node.tagName.toLowerCase()
-						const sw = node.getAttribute("stroke-width") || "0.4"
-						
-						if (tag === "line") {
-							const dx1 = (parseFloat(node.getAttribute("x1") || "0") - mid.x) * (127 / 4800)
-							const dy1 = -(parseFloat(node.getAttribute("y1") || "0") - mid.y) * (127 / 4800)
-							const dx2 = (parseFloat(node.getAttribute("x2") || "0") - mid.x) * (127 / 4800)
-							const dy2 = -(parseFloat(node.getAttribute("y2") || "0") - mid.y) * (127 / 4800)
-							drawCommands.push(`\\draw [line width=${sw}pt] (${dx1.toFixed(3)}, ${dy1.toFixed(3)}) -- (${dx2.toFixed(3)}, ${dy2.toFixed(3)});`)
-						} else if (tag === "circle") {
-							const dcx = (parseFloat(node.getAttribute("cx") || "0") - mid.x) * (127 / 4800)
-							const dcy = -(parseFloat(node.getAttribute("cy") || "0") - mid.y) * (127 / 4800)
-							const dr = parseFloat(node.getAttribute("r") || "0") * (127 / 4800)
-							drawCommands.push(`\\draw [line width=${sw}pt] (${dcx.toFixed(3)}, ${dcy.toFixed(3)}) circle (${dr.toFixed(3)});`)
-						} else if (tag === "rect") {
-							if (node.classList.contains("clickBackground")) return
-							const rx = parseFloat(node.getAttribute("x") || "0")
-							const ry = parseFloat(node.getAttribute("y") || "0")
-							const rw = parseFloat(node.getAttribute("width") || "0")
-							const rh = parseFloat(node.getAttribute("height") || "0")
-							const dx1 = (rx - mid.x) * (127 / 4800)
-							const dy1 = -(ry - mid.y) * (127 / 4800)
-							const dx2 = (rx + rw - mid.x) * (127 / 4800)
-							const dy2 = -(ry + rh - mid.y) * (127 / 4800)
-							drawCommands.push(`\\draw [line width=${sw}pt] (${dx1.toFixed(3)}, ${dy1.toFixed(3)}) rectangle (${dx2.toFixed(3)}, ${dy2.toFixed(3)});`)
-						} else if (tag === "path") {
-							const d = node.getAttribute("d") || ""
-							const tikzPath = convertPathDToTikz(d, mid)
-							if (tikzPath) {
-								const cmd = `\\draw [line width=${sw}pt] ${tikzPath};`
-								console.log("[collectDrawCommands] path push:", cmd)
-								drawCommands.push(cmd)
-							}
-						} else if (tag === "g") {
-							for (let i = 0; i < node.children.length; i++) {
-								collectDrawCommands(node.children[i])
-							}
-						}
-					}
-
-					const symbolNode = variant.symbol.node as any
-					for (let i = 0; i < symbolNode.children.length; i++) {
-						collectDrawCommands(symbolNode.children[i])
-					}
-
-					if (drawCommands.length > 0) {
-						definitions.push(`  ${tikzName}/.style={\n    ${baseSymbol},\n    draw=none,\n    fill=none,\n    append after command={\n      \\begin{scope}[shift={(\\tikzlastnode.center)}]\n        ${drawCommands.join("\n        ")}\n      \\end{scope}\n    }\n  }`)
-						continue
-					}
-				}
-			}
-
-			definitions.push(`  ${tikzName}/.style={${baseSymbol}}`)
-		}
-
-		return `\\tikzset{\n${definitions.join(",\n")}\n}`
+		return this.customSymbolExportService.getCustomSymbolsTikzset(
+			this.circuitComponents as any,
+			this.customSymbols,
+			this.symbols as any
+		)
 	}
 }
 
