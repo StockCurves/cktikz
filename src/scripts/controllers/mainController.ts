@@ -12,9 +12,10 @@ import { CustomSymbolSubcircuitSaveController } from "./customSymbolSubcircuitSa
 import { CustomSymbolCatalogController } from "./customSymbolCatalogController"
 import { CustomSymbolGraphicsController } from "./customSymbolGraphicsController"
 import { SymbolLibraryBootstrapController } from "./symbolLibraryBootstrapController"
-import { SymbolLibraryMenuController } from "./symbolLibraryMenuController"
-import { ShapeLibraryController } from "./shapeLibraryController"
+import { AddComponentOffcanvasController } from "./addComponentOffcanvasController"
 import { ComponentLibraryController } from "./componentLibraryController"
+import { ShapeLibraryController } from "./shapeLibraryController"
+import { SymbolLibraryMenuController } from "./symbolLibraryMenuController"
 import { CustomSymbolApplicationService } from "../services/customSymbolApplicationService"
 import { CustomSymbolExportService } from "../services/customSymbolExportService"
 import type { CustomSymbolRecord } from "../services/customSymbolService"
@@ -118,9 +119,6 @@ export class MainController {
 	private readonly tabManagementController = new TabManagementController()
 	private readonly customSymbolSaveController = new CustomSymbolSaveController()
 	private readonly customSymbolSelectionController = new CustomSymbolSelectionController()
-	private readonly symbolLibraryMenuController = new SymbolLibraryMenuController()
-	private readonly shapeLibraryController = new ShapeLibraryController()
-	private readonly componentLibraryController = new ComponentLibraryController()
 	private readonly modalDialogService = new ModalDialogService()
 	private readonly customSymbolWorkspaceController = new CustomSymbolWorkspaceController({
 		hideDrawer: () => {
@@ -193,6 +191,40 @@ export class MainController {
 	private readonly symbolLibraryBootstrapController = new SymbolLibraryBootstrapController({
 		symbolLibraryService: this.symbolLibraryService,
 		customSymbolGraphicsController: this.customSymbolGraphicsController,
+	})
+	private readonly addComponentOffcanvasController = new AddComponentOffcanvasController({
+		componentLibraryController: new ComponentLibraryController(),
+		shapeLibraryController: new ShapeLibraryController(),
+		symbolLibraryMenuController: new SymbolLibraryMenuController(),
+		hideDrawer: () => {
+			const leftOffcanvas = document.getElementById("leftOffcanvas") as HTMLDivElement
+			new Offcanvas(leftOffcanvas).hide()
+		},
+		switchToPanMode: () => this.switchMode(Modes.DRAG_PAN),
+		switchToComponentMode: () => this.switchMode(Modes.COMPONENT),
+		cancelComponentPlacement: () => {
+			if (ComponentPlacer.instance.component) {
+				ComponentPlacer.instance.placeCancel()
+			}
+		},
+		placeComponent: (component: CircuitComponent) => {
+			ComponentPlacer.instance.placeComponent(component)
+		},
+		openPrompt: (title: string, message: string, defaultValue?: string) => this.openPrompt(title, message, defaultValue),
+		openRenameModal: (title: string, currentName: string) => this.openRenameModal(title, currentName),
+		openConfirm: (title: string, body: string) => this.openConfirm(title, body),
+		addCustomCategory: (name: string) => this.addCustomCategory(name),
+		loadCustomCategories: () => this.loadAndRenderCustomCategories(),
+		getCustomCategoryNames: () => this.customCategories.map((category) => category.name),
+		getSymbolByName: (symbolName: string) => this.symbols.find((symbol) => symbol.tikzName === symbolName),
+		openSymbolEditor: (symbolName: string) => {
+			SymbolEditorController.instance.open("custom-" + symbolName)
+		},
+		renameCustomGraphicsSymbol: (oldName: string, newName: string) => this.renameCustomGraphicsSymbol(oldName, newName),
+		deleteCustomGraphicsSymbol: (symbolId: string) => this.deleteCustomGraphicsSymbol(symbolId),
+		addSymbolToCategory: (categoryName: string, symbolName: string) => this.addSymbolToCategory(categoryName, symbolName),
+		duplicateSymbol: (symbol: ComponentSymbol, newName: string, categoryName: string) =>
+			this.duplicateSymbol(symbol, newName, categoryName),
 	})
 
 	/**
@@ -770,60 +802,11 @@ export class MainController {
 	 */
 	private async initAddComponentOffcanvas() {
 		const leftOffcanvas: HTMLDivElement = document.getElementById("leftOffcanvas") as HTMLDivElement
-		this.componentLibraryController.bindToolbar(leftOffcanvas, {
-			switchToPanMode: () => this.switchMode(Modes.DRAG_PAN),
-			openPrompt: (title, message) => this.openPrompt(title, message),
-			addCategory: (name) => this.addCustomCategory(name),
-		})
 		const leftOffcanvasAccordion: HTMLDivElement = document.getElementById(
 			"leftOffcanvasAccordion"
 		) as HTMLDivElement
 
-		this.shapeLibraryController.render(leftOffcanvasAccordion, {
-			hideDrawer: () => leftOffcanvasOC.hide(),
-			switchToPanMode: () => this.switchMode(Modes.DRAG_PAN),
-			switchToComponentMode: () => this.switchMode(Modes.COMPONENT),
-			cancelComponentPlacement: () => {
-				if (ComponentPlacer.instance.component) {
-					ComponentPlacer.instance.placeCancel()
-				}
-			},
-			placeComponent: (component) => ComponentPlacer.instance.placeComponent(component),
-		})
-		await this.loadAndRenderCustomCategories()
-		this.componentLibraryController.render(leftOffcanvasAccordion, this.symbols, {
-			hideDrawer: () => leftOffcanvasOC.hide(),
-			switchToComponentMode: () => this.switchMode(Modes.COMPONENT),
-			cancelComponentPlacement: () => {
-				if (ComponentPlacer.instance.component) {
-					ComponentPlacer.instance.placeCancel()
-				}
-			},
-			placeComponent: (component) => ComponentPlacer.instance.placeComponent(component),
-			openContextMenu: (event, symbol) =>
-				this.symbolLibraryMenuController.openAndExecute({
-					clientX: event.clientX,
-					clientY: event.clientY,
-					symbolName: symbol.tikzName,
-					isCustomSymbol: !!symbol.isCustomSymbol,
-					categoryNames: this.customCategories.map((category) => category.name),
-					openPrompt: (title, message, defaultValue) => this.openPrompt(title, message, defaultValue),
-					openRenameModal: (title, currentName) => this.openRenameModal(title, currentName),
-					openConfirm: (title, body) => this.openConfirm(title, body),
-					openEditor: (symbolName) => {
-						SymbolEditorController.instance.open("custom-" + symbolName)
-					},
-					renameSymbol: (oldName, newName) => this.renameCustomGraphicsSymbol(oldName, newName),
-					deleteSymbol: (symbolName) => this.deleteCustomGraphicsSymbol(symbolName),
-					addCategory: (categoryName) => this.addCustomCategory(categoryName),
-					addToCategory: (categoryName, symbolName) => this.addSymbolToCategory(categoryName, symbolName),
-					duplicateSymbol: (symbolName, newName, categoryName) => {
-						const menuSymbol = symbolName === symbol.tikzName ? symbol : this.symbolsDB.get(symbolName)
-						if (!menuSymbol) return Promise.resolve()
-						return this.duplicateSymbol(menuSymbol, newName, categoryName)
-					},
-				}),
-		})
+		await this.addComponentOffcanvasController.initialize(leftOffcanvas, leftOffcanvasAccordion, this.symbols)
 	}
 
 	/**

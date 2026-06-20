@@ -291,6 +291,7 @@ custom symbol 這條線目前已完成大半：
 - `CustomSymbolGraphicsController` 已建立，接手 graphics symbol load / duplicate / rename / delete orchestration
 - `SymbolLibraryBootstrapController` 已建立，接手 symbol DB loading 與 custom symbol hydration 的 startup bridge
 - `SymbolLibraryMenuController` 已建立，且已接上 `openAndExecute()` 這種一站式 symbol menu 協調入口
+- `AddComponentOffcanvasController` 已建立，接手 initAddComponentOffcanvas() 的 toolbar / shape / component-library orchestration
 - `customSymbolDrawerActionsFactory` 已把 drawer 的 placement / runtime callback 組裝從 `MainController` 抽出去
 - `CustomSymbolSubcircuitSaveController` 已建立，接手 selection/group/save/restore/persist 這條 subcircuit save orchestration
 - `MainController.renameCustomGraphicsSymbol()` / `duplicateSymbol()` / `deleteCustomGraphicsSymbol()` 已改走 application service
@@ -298,7 +299,7 @@ custom symbol 這條線目前已完成大半：
 
 但這一階段還沒完全結束，因為：
 
-- `MainController` 仍保有少量 custom symbol UI glue，但 selection/save orchestration、category mutation、graphics symbol mutation 已經再往專用 controller 收斂
+- `MainController` 仍保有少量 custom symbol UI glue，但 selection/save orchestration、category mutation、graphics symbol mutation、add-component offcanvas orchestration 已經再往專用 controller 收斂
 - `serverless latex adapter` 已完成切換點，但 demo mode 的啟動/部署設定還需持續對齊
 - `api/latex.js` 已成為可切換 provider
 
