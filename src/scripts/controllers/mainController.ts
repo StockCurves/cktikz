@@ -721,34 +721,11 @@ export class MainController {
 	 */
 	private async initAddComponentOffcanvas() {
 		const leftOffcanvas: HTMLDivElement = document.getElementById("leftOffcanvas") as HTMLDivElement
-		const leftOffcanvasOC = new Offcanvas(leftOffcanvas)
-		document.getElementById("componentFilterInput").addEventListener("input", this.componentLibraryController.filterComponents)
-		document.getElementById("filterRegexButton").addEventListener("click", this.componentLibraryController.filterComponents)
-		document.getElementById("addCategoryButton").addEventListener("click", async () => {
-			const name = await this.openPrompt("New Category", "Please enter a custom category name:")
-			if (name) {
-				this.addCustomCategory(name)
-			}
+		this.componentLibraryController.bindToolbar(leftOffcanvas, {
+			switchToPanMode: () => this.switchMode(Modes.DRAG_PAN),
+			openPrompt: (title, message) => this.openPrompt(title, message),
+			addCategory: (name) => this.addCustomCategory(name),
 		})
-
-		const addComponentButton: HTMLAnchorElement = document.getElementById("addComponentButton") as HTMLAnchorElement
-		addComponentButton.addEventListener(
-			"click",
-			((ev: PointerEvent) => {
-				this.switchMode(Modes.DRAG_PAN)
-				leftOffcanvasOC.toggle()
-				if (leftOffcanvas.classList.contains("showing") && ev.pointerType !== "touch") {
-					let searchBar = document.getElementById("componentFilterInput")
-					const refocus = () => {
-						searchBar.focus()
-						leftOffcanvas.removeEventListener("shown.bs.offcanvas", refocus)
-					}
-					refocus()
-					leftOffcanvas.addEventListener("shown.bs.offcanvas", refocus)
-				}
-			}).bind(this),
-			{ passive: true }
-		)
 		const leftOffcanvasAccordion: HTMLDivElement = document.getElementById(
 			"leftOffcanvasAccordion"
 		) as HTMLDivElement

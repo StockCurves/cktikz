@@ -50,6 +50,16 @@ vi.mock("@svgdotjs/svg.js", () => ({
 	},
 }))
 
+const offcanvasToggle = vi.fn()
+
+vi.mock("bootstrap", () => ({
+	Offcanvas: class {
+		toggle = offcanvasToggle
+		hide = vi.fn()
+		constructor(public element: HTMLElement) {}
+	},
+}))
+
 vi.mock("../src/scripts/internal", () => ({
 	ComponentSymbol: class {},
 	NodeSymbolComponent: class NodeSymbolComponent {
@@ -100,12 +110,42 @@ function makeSymbol(overrides: Partial<any> = {}) {
 
 describe("ComponentLibraryController", () => {
 	beforeEach(() => {
+		offcanvasToggle.mockClear()
 		document.body.innerHTML = `
+			<a id="addComponentButton"></a>
 			<input id="componentFilterInput" />
 			<button id="filterRegexButton"></button>
+			<button id="addCategoryButton"></button>
 			<div id="invalid-feedback-text" class="d-none"></div>
+			<div id="leftOffcanvas" class="offcanvas"></div>
 			<div id="leftOffcanvasAccordion"></div>
 		`
+	})
+
+	it("binds toolbar actions for adding categories and toggling the drawer", async () => {
+		const controller = new ComponentLibraryController()
+		const openPrompt = vi.fn(async () => "New Group")
+		const addCategory = vi.fn()
+		const switchToPanMode = vi.fn()
+
+		controller.bindToolbar(document.getElementById("leftOffcanvas") as HTMLDivElement, {
+			switchToPanMode,
+			openPrompt,
+			addCategory,
+		})
+
+		;(document.getElementById("addCategoryButton") as HTMLButtonElement).dispatchEvent(
+			new Event("click", { bubbles: true, cancelable: true })
+		)
+		await Promise.resolve()
+		expect(openPrompt).toHaveBeenCalled()
+		expect(addCategory).toHaveBeenCalledWith("New Group")
+
+		;(document.getElementById("addComponentButton") as HTMLAnchorElement).dispatchEvent(
+			new Event("click", { bubbles: true, cancelable: true })
+		)
+		expect(switchToPanMode).toHaveBeenCalled()
+		expect(offcanvasToggle).toHaveBeenCalled()
 	})
 
 	it("renders grouped symbols into accordion sections", () => {

@@ -329,7 +329,7 @@ custom symbol 這條線目前已完成大半：
 - template open / save / delete application flow
 - latex request shape 與 render client wiring
 - custom symbol drawer / save modal / symbol library menu controller
-- component library controller / filter wiring
+- component library controller / filter wiring / toolbar binding
 
 ### 目前已補上的 targeted tests
 
@@ -361,7 +361,7 @@ custom symbol 這條線目前已完成大半：
 
 ### 最近一次實際 gate
 
-- targeted vitest：`9` 個 test files，`23` 個 tests，全數通過
+- targeted vitest：`9` 個 test files，`24` 個 tests，全數通過
 - build：隔離的 Parcel build 成功
 - `generate-template-manifest` 成功
 

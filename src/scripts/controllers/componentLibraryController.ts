@@ -1,4 +1,5 @@
 import * as SVG from "@svgdotjs/svg.js"
+import { Offcanvas } from "bootstrap"
 import {
 	CircuitComponent,
 	defaultFill,
@@ -16,7 +17,45 @@ export type ComponentLibraryCallbacks = {
 	openContextMenu: (event: MouseEvent, symbol: ComponentSymbol) => Promise<void>
 }
 
+export type ComponentLibraryToolbarCallbacks = {
+	switchToPanMode: () => void
+	openPrompt: (title: string, message: string) => Promise<string | null>
+	addCategory: (name: string) => void
+}
+
 export class ComponentLibraryController {
+	public bindToolbar(leftOffcanvas: HTMLDivElement, callbacks: ComponentLibraryToolbarCallbacks): void {
+		const leftOffcanvasOC = new Offcanvas(leftOffcanvas)
+
+		document.getElementById("componentFilterInput").addEventListener("input", this.filterComponents)
+		document.getElementById("filterRegexButton").addEventListener("click", this.filterComponents)
+		document.getElementById("addCategoryButton").addEventListener("click", async () => {
+			const name = await callbacks.openPrompt("New Category", "Please enter a custom category name:")
+			if (name) {
+				callbacks.addCategory(name)
+			}
+		})
+
+		const addComponentButton: HTMLAnchorElement = document.getElementById("addComponentButton") as HTMLAnchorElement
+		addComponentButton.addEventListener(
+			"click",
+			((ev: PointerEvent) => {
+				callbacks.switchToPanMode()
+				leftOffcanvasOC.toggle()
+				if (leftOffcanvas.classList.contains("showing") && ev.pointerType !== "touch") {
+					let searchBar = document.getElementById("componentFilterInput") as HTMLInputElement
+					const refocus = () => {
+						searchBar.focus()
+						leftOffcanvas.removeEventListener("shown.bs.offcanvas", refocus)
+					}
+					refocus()
+					leftOffcanvas.addEventListener("shown.bs.offcanvas", refocus)
+				}
+			}).bind(this),
+			{ passive: true }
+		)
+	}
+
 	public render(leftOffcanvasAccordion: HTMLDivElement, symbols: ComponentSymbol[], callbacks: ComponentLibraryCallbacks): void {
 		const groupedSymbols = symbols.reduce(
 			(grouped: Map<string, ComponentSymbol[]>, symbol) => {
