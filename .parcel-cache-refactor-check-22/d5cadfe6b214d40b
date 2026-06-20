@@ -1,0 +1,98 @@
+\begin{circuitikz}[american]
+    % Input square wave shape
+    \draw ( -2.2,  4.0) to[short] ( -1.8,  4.0);
+    \draw ( -1.8,  4.0) to[short] ( -1.8,  3.2);
+    \draw ( -1.8,  3.2) to[short] ( -1.2,  3.2);
+    \draw ( -1.2,  3.2) to[short] ( -1.2,  4.0);
+    \draw ( -1.2,  4.0) to[short] ( -0.8,  4.0);
+
+    % Input port and label
+    \draw ( -0.5,  3.5) node[left] {$V_{\mathrm{PWM, P(N)}}$};
+    \draw ( -0.5,  3.5) to[short, -o] (  0.2,  3.5);
+    \draw (  0.2,  3.5) to[short] (  1.5,  3.5);
+
+    % Vertical input distribution bus
+    \draw (  1.5,  7.5) to[short] (  1.5, -0.5);
+
+    % M1 (PMOS) centered at (3.75, 7.0)
+    \draw (  3.75, 7.0) node[pmos, emptycircle] {};
+    \draw (  1.5,  7.0) to[short] (  3.0,  7.0); % Gate connection
+    \draw (  3.75, 7.75) to[short] (  3.75, 8.0); % Source connection
+    \draw (  3.75, 8.0) node[vcc] {$V_{\mathrm{DD}}$};
+    \draw (  3.75, 6.25) to[short] (  3.75, 5.75); % Drain to M2 Source
+
+    % M2 (PMOS) centered at (3.75, 5.0)
+    \draw (  3.75, 5.0) node[pmos, emptycircle] {};
+    \draw (  1.5,  5.0) to[short] (  3.0,  5.0); % Gate connection
+
+    % M3 (NMOS) centered at (3.75, 3.0)
+    \draw (  3.75, 3.0) node[nmos] {};
+    \draw (  1.5,  3.0) to[short] (  3.0,  3.0); % Gate connection
+    \draw (  3.75, 4.25) to[short] (  3.75, 3.75); % M2 Drain to M3 Drain
+
+    % Node V_X (Top Stack Output) at (3.75, 4.0)
+    \draw (  3.75, 4.0) to[short, *-o] (  5.25, 4.0);
+    \draw (  5.25, 4.0) node[right] {$V_X$};
+
+    % M4 (PMOS) centered at (3.75, 1.0)
+    \draw (  3.75, 1.0) node[pmos, emptycircle] {};
+    \draw (  1.5,  1.0) to[short] (  3.0,  1.0); % Gate connection
+    \draw (  3.75, 2.25) to[short] (  3.75, 1.75); % M3 Source to M4 Source
+
+    % M5 (NMOS) centered at (3.75, -1.0)
+    \draw (  3.75,-1.0) node[nmos] {};
+    \draw (  1.5, -1.0) to[short] (  3.0, -1.0); % Gate connection
+    \draw (  3.75, 0.25) to[short] (  3.75,-0.25); % M4 Drain to M5 Drain
+
+    % M6 (NMOS) centered at (3.75, -3.0)
+    \draw (  3.75,-3.0) node[nmos] {};
+    \draw (  1.5, -3.0) to[short] (  3.0, -3.0); % Gate connection
+    \draw (  3.75,-1.75) to[short] (  3.75,-2.25); % M5 Source to M6 Drain
+    \draw (  3.75,-3.75) to[short] (  3.75,-4.0); % M6 Source connection
+    \draw (  3.75,-4.0) node[ground] {};
+
+    % Node V_Y (Bottom Stack Output) at (3.75, 0.0)
+    \draw (  3.75, 0.0) to[short, *-o] (  5.25, 0.0);
+    \draw (  5.25, 0.0) node[right] {$V_Y$};
+
+    % Connect V_X to Pull-up Driver (MP)
+    \draw (  5.25, 4.0) to[short] (  6.25, 4.0);
+    \draw (  6.25, 4.0) to[short] (  6.25, 3.5); % Wire to MP Gate
+    \draw (  6.25, 3.5) to[short] (  7.0,  3.5); % Wire to MP Gate
+    
+    % MP (PMOS) centered at (7.75, 3.5)
+    \draw (  7.75, 3.5) node[pmos, emptycircle] {};
+    \draw (  7.75, 4.25) to[short] (  7.75, 8.0); % MP Source to VDD
+    \draw (  7.75, 8.0) node[vcc] {$V_{\mathrm{DD}}$};
+
+    % Connect V_Y to Pull-down Driver (MN)
+    \draw (  5.25, 0.0) to[short] (  6.25, 0.0);
+    \draw (  6.25, 0.0) to[short] (  6.25, 0.5); % Wire to MN Gate
+    \draw (  6.25, 0.5) to[short] (  7.0,  0.5); % Wire to MN Gate
+
+    % MN (NMOS) centered at (7.75, 0.5)
+    \draw (  7.75, 0.5) node[nmos] {};
+    \draw (  7.75,-0.25) to[short] (  7.75,-4.0); % MN Source to Ground
+    \draw (  7.75,-4.0) node[ground] {};
+
+    % Connect MP Drain and MN Drain to V_SW
+    \draw (  7.75, 2.75) to[short] (  7.75, 2.0); % MP Drain down
+    \draw (  7.75, 1.25) to[short] (  7.75, 2.0); % MN Drain up
+    \draw (  7.75, 2.0) to[short, *-] (  9.25, 2.0); % V_SW to L_in
+    
+    % Inductor L_F
+    \draw (  9.25, 2.0) to[L=$L_F$] ( 11.75, 2.0);
+    
+    % Capacitor C_F and Load R_L
+    \draw ( 11.75, 2.0) to[short, *-] ( 11.75, 0.5);
+    \draw ( 11.75, 0.5) to[C=$C_F$] ( 11.75,-1.5);
+    \draw ( 11.75,-1.5) node[ground] {};
+    
+    \draw ( 11.75, 2.0) to[short] ( 13.75, 2.0);
+    \draw ( 13.75, 2.0) to[R=$R_L$] ( 13.75,-1.5);
+    \draw ( 13.75,-1.5) node[ground] {};
+    
+    % Output Signal Label
+    \draw ( 13.75, 2.0) to[short, *-o] ( 16.75, 2.0);
+    \draw ( 16.75, 2.0) node[right] {$V_{\mathrm{out}}$};
+\end{circuitikz}
