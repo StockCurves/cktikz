@@ -1,6 +1,7 @@
 import type { AppRuntimeConfig } from "./runtimeConfig"
 
 export type RuntimePreset = "server" | "demo"
+const RUNTIME_META_SELECTOR = 'meta[name="circuitikz-runtime"]'
 
 const DEMO_RUNTIME_OVERRIDES: Partial<AppRuntimeConfig> = Object.freeze({
 	storageMode: "indexeddb",
@@ -8,39 +9,16 @@ const DEMO_RUNTIME_OVERRIDES: Partial<AppRuntimeConfig> = Object.freeze({
 	latexMode: "serverless-proxy",
 })
 
-declare global {
-	interface Window {
-		__CIRCUITIKZ_DESIGNER_RUNTIME_PRESET__?: RuntimePreset
-	}
-}
-
 function isRuntimePreset(value: string | null | undefined): value is RuntimePreset {
 	return value === "server" || value === "demo"
 }
 
 export function resolveRuntimePreset(
-	search = typeof window !== "undefined" ? window.location.search : "",
-	doc: Document | undefined = typeof document !== "undefined" ? document : undefined,
-	win: Window | undefined = typeof window !== "undefined" ? window : undefined
+	doc: Document | undefined = typeof document !== "undefined" ? document : undefined
 ): RuntimePreset | null {
-	const queryPreset = new URLSearchParams(search).get("runtime")
-	if (isRuntimePreset(queryPreset)) {
-		return queryPreset
-	}
-
-	const metaPreset = doc?.querySelector('meta[name="circuitikz-runtime"]')?.getAttribute("content")?.trim()
+	const metaPreset = doc?.querySelector(RUNTIME_META_SELECTOR)?.getAttribute("content")?.trim()
 	if (isRuntimePreset(metaPreset)) {
 		return metaPreset
-	}
-
-	const dataPreset = doc?.documentElement?.dataset.runtime?.trim() ?? doc?.body?.dataset.runtime?.trim()
-	if (isRuntimePreset(dataPreset)) {
-		return dataPreset
-	}
-
-	const windowPreset = win?.__CIRCUITIKZ_DESIGNER_RUNTIME_PRESET__
-	if (isRuntimePreset(windowPreset)) {
-		return windowPreset
 	}
 
 	return null
@@ -61,7 +39,7 @@ export function bootstrapRuntimeConfig(
 		return
 	}
 
-	const preset = resolveRuntimePreset(win.location.search, doc, win)
+	const preset = resolveRuntimePreset(doc)
 	if (!preset) {
 		return
 	}

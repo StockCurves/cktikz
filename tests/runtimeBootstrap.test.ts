@@ -9,22 +9,17 @@ import {
 describe("runtimeBootstrap", () => {
 	afterEach(() => {
 		delete (window as any).__CIRCUITIKZ_DESIGNER_RUNTIME__
-		delete (window as any).__CIRCUITIKZ_DESIGNER_RUNTIME_PRESET__
 		document.head.innerHTML = ""
-		document.documentElement.removeAttribute("data-runtime")
-		document.body.removeAttribute("data-runtime")
-		window.history.replaceState({}, "", "/")
 	})
 
-	it("resolves the demo preset from the runtime query parameter before DOM defaults", () => {
-		document.head.innerHTML = `<meta name="circuitikz-runtime" content="server" />`
-		window.history.replaceState({}, "", "/?runtime=demo")
+	it("resolves the demo preset from the runtime meta tag", () => {
+		document.head.innerHTML = `<meta name="circuitikz-runtime" content="demo" />`
 
-		expect(resolveRuntimePreset(window.location.search, document, window)).toBe("demo")
+		expect(resolveRuntimePreset(document)).toBe("demo")
 	})
 
 	it("applies the demo runtime preset to the shared runtime override slot", () => {
-		window.history.replaceState({}, "", "/?runtime=demo")
+		document.head.innerHTML = `<meta name="circuitikz-runtime" content="demo" />`
 
 		bootstrapRuntimeConfig(window, document)
 
@@ -50,6 +45,15 @@ describe("runtimeBootstrap", () => {
 			latexMode: "server-proxy",
 			apiBase: "/demo-api",
 		})
+	})
+
+	it("ignores missing or invalid runtime meta values", () => {
+		document.head.innerHTML = `<meta name="circuitikz-runtime" content="staging" />`
+
+		expect(resolveRuntimePreset(document)).toBeNull()
+
+		bootstrapRuntimeConfig(window, document)
+		expect(window.__CIRCUITIKZ_DESIGNER_RUNTIME__).toBeUndefined()
 	})
 
 	it("returns empty overrides for the server preset", () => {

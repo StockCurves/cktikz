@@ -1,6 +1,6 @@
 ﻿# 方案 B、分層計畫與推薦實作方式整理
 
-更新基準：本文已同步到目前 `main` 的 runtime / tab / custom symbol 分層進度，包含 `CustomSymbolDrawerController`、`CustomSymbolSaveController`、`SymbolLibraryMenuController` 等最新切片。
+更新基準：本文已同步到目前 `main` 的 runtime / tab / custom symbol 分層進度，並納入目前工作樹中已接上入口的 `runtimeBootstrap` / demo runtime preset 狀態。
 
 本文整理三個主題：
 
@@ -97,7 +97,7 @@
 
 ## 5. 分層方向
 
-第 5 點之後要以 `main` 現況為基準，不再用理想式藍圖描述。現在的重點不是「要不要分層」，而是「哪些切換點已經落地、哪些責任仍卡在 `MainController`，以及 demo mode 還缺哪個啟動設定」。
+第 5 點之後要以目前工作狀況為基準，不再用理想式藍圖描述。現在的重點不是「要不要分層」，而是「哪些切換點已經落地、哪些責任仍卡在 `MainController`，以及 demo mode 現在已經做到哪一步、下一步要驗證什麼」。
 
 ### 現況盤點
 
@@ -146,8 +146,14 @@
 
 - `MainController` 已經比前一版薄很多，但仍保有 façade 型 public methods 與少量 UI glue。
 - custom symbol 的 selection/save/category/graphics/bootstrap/offcanvas orchestration 已往專用 controller 收斂；剩餘工作應是小切片整理，不適合再做大規模重寫。
-- `serverless-proxy` provider 入口已完成；真正尚未完成的是 demo mode 預設啟動/部署設定，還沒有一個明確入口把 runtime override 設成 `indexeddb + static-manifest + serverless-proxy`。
-- demo mode 還需要實際驗證不會走 `/api/files`、`/api/file`、`/api/save`、`/api/delete`。
+- `serverless-proxy` provider 入口已完成，而且 demo runtime preset 也已補上：
+  - 新增 `src/scripts/config/runtimeBootstrap.ts`
+  - 支援從 `?runtime=demo`、`meta[name="circuitikz-runtime"]`、`data-runtime`、`window.__CIRCUITIKZ_DESIGNER_RUNTIME_PRESET__` 解析 preset
+  - `src/scripts/index.ts` 已在 app import 前先執行 `bootstrapRuntimeConfig()`
+- demo mode 的主要未完項已從「建立 preset 入口」轉成「驗證與收尾」：
+  - 確認實際 demo 啟動路徑真的固定走 `indexeddb + static-manifest + serverless-proxy`
+  - 確認 demo mode 不會再走 `/api/files`、`/api/file`、`/api/save`、`/api/delete`
+  - 決定正式的 demo 啟動介面要用 query、HTML data/meta，還是 branch/deploy-time 注入
 
 ### 四層目標
 
@@ -241,7 +247,7 @@
 
 - `server` 與 `local/static` 從這一層切換
 - `server.js` 與 `api/latex.js` 都屬於 integration layer，不屬於 controller
-- demo mode 透過 runtime config injection 切換 provider，而不是維護第二套前端
+- demo mode 已開始透過 runtime config injection 切換 provider，而不是維護第二套前端
 
 ## 6. 推薦實作方式
 
@@ -285,15 +291,18 @@
 - `storageMode = "server" | "indexeddb"`
 - `templateSource = "server" | "static-manifest"`
 - `latexMode = "server-proxy" | "serverless-proxy"`
-- `storageMode = "indexeddb"`
-- `templateSource = "static-manifest"`
 - `api/latex.js` 已接上 `server/latexProxy.js`
 - `server.js` 與 `api/latex.js` 共用同一份 QuickLaTeX proxy 行為
+- `src/scripts/config/runtimeBootstrap.ts` 已建立 demo preset bootstrap
+- `src/scripts/index.ts` 已在動態 import `MainController` 前先套用 runtime preset
+- `tests/runtimeBootstrap.test.ts` 已覆蓋 preset 解析與 override 合併行為
+- `tests/apiServices.test.ts` 已補上 demo providers 不碰 server filesystem API 的回歸測試
 
 尚未完成：
 
-- demo mode 的預設 runtime override / deployment bootstrap，尚未把 `indexeddb + static-manifest + serverless-proxy` 固定成 demo 啟動模式。
-- demo mode 尚未實際驗證完全避開 `/api/files`、`/api/file`、`/api/save`、`/api/delete`。
+- 決定哪一種 preset 載入方式會成為正式 demo 部署慣例，目前 code 已同時支援 query / meta / dataset / window preset，但尚未收斂成單一路徑。
+- 補一次實際 build / deploy 角度的驗證，確認 demo 啟動模式確實固定成 `indexeddb + static-manifest + serverless-proxy`。
+- 若未來 demo branch 需要零手動切換，仍要補 deploy-time 或 HTML bootstrap 的明確約定。
 
 ### 第四階段：接上 custom symbol / 方案 B 專用實作
 
@@ -327,9 +336,10 @@ custom symbol / component library 這條線目前已完成大半：
 
 接下來建議順序：
 
-1. 建立 demo runtime 設定入口，讓 demo mode 預設走 `storageMode = "indexeddb"`、`templateSource = "static-manifest"`、`latexMode = "serverless-proxy"`。
-2. 驗證 demo mode 不再依賴 `/api/files`、`/api/file`、`/api/save`、`/api/delete`。
-3. 再把 `MainController` 剩下的 façade / custom symbol UI glue 用小切片繼續收斂，避免一次大改。
+1. 把 demo preset 的啟動約定收斂成單一路徑。
+2. 用 targeted tests + build 驗證 demo runtime 不再依賴 `/api/files`、`/api/file`、`/api/save`、`/api/delete`。
+3. 繼續把 `MainController` 剩下的 façade / custom symbol UI glue 用小切片收斂，避免一次大改。
+4. 依照目前工作樹的新切片方向，評估是否把 component / property / naming 這類 runtime callback 也正式整理成下一輪分層 seam。
 
 ## 7. 後續開發限制
 
@@ -345,6 +355,7 @@ custom symbol / component library 這條線目前已完成大半：
 - 不把已抽出的 runtime/provider 邊界再塞回 `MainController`
 - demo 專用差異優先放在 runtime config injection 或 demo branch bootstrap，不改 service method shape
 - `api/latex.js` / `server/latexProxy.js` 應保持共用 proxy 行為，避免 server 與 serverless 兩套實作漂移
+- 若採用 preset bootstrap，應避免讓 query / meta / dataset / window 四種入口長期並存卻沒有正式優先順序說明
 
 ## 8. 測試策略
 
@@ -363,6 +374,7 @@ custom symbol / component library 這條線目前已完成大半：
 ### 目前已補上的 targeted tests
 
 - `apiServices.test.ts`
+- `runtimeBootstrap.test.ts`
 - `controllerRuntime.test.ts`
 - `templateController.test.ts`
 - `tabSessionService.test.ts`
@@ -401,29 +413,33 @@ custom symbol / component library 這條線目前已完成大半：
 ### 下一階段建議 gate
 
 - 文件更新本身不用跑測試，但要重新檢查第 5-9 點沒有互相矛盾。
-- demo runtime config 實作後，先跑：
-  - `npm.cmd test -- tests/apiServices.test.ts tests/controllerRuntime.test.ts tests/templateController.test.ts tests/latexProxy.test.ts`
+- demo preset / runtime bootstrap 這一輪完成後，先跑：
+  - `npm.cmd test -- tests/runtimeBootstrap.test.ts tests/apiServices.test.ts tests/controllerRuntime.test.ts tests/templateController.test.ts tests/latexProxy.test.ts`
+- 如果下一輪開始處理 component / property / naming runtime seam，再加跑對應 focused tests。
 - 如果碰到 custom symbol callback / façade cleanup，再加跑相關 custom-symbol focused tests。
 - 最後跑 `npm.cmd run build`；若遇到 Windows / Parcel temp path `ENOENT unlink`，改用 isolated cache / dist build 作輔助驗證。
 
 ## 9. 建議結論
 
-現在不是先做 demo branch 特化，而是先把 `main` 的切換點抽乾淨。
+現在不是先做第二套 demo UI，而是先把 `main` 的切換點抽乾淨，並把 demo preset 的啟動方式正式定案。
 
 目前已經完成的重點：
 
 - runtime / provider 骨架已存在
+- demo runtime preset bootstrap 已存在，且已接進 `src/scripts/index.ts`
 - tab / session / work / template 已大幅離開 `MainController`
 - `TemplateController` / `LiveRenderController` 已透過 `controllerRuntime` 接 runtime services
 - `api/latex.js` 與 `server.js` 已共用 `server/latexProxy.js`
 - custom symbol 已拆成 application service、workspace/state/drawer/save/catalog/graphics/bootstrap/subcircuit controllers
 - component library 的群組渲染與 filter wiring 已從 `MainController` 抽出
+- demo providers 不碰 server filesystem API 的回歸測試已補上
 
 接下來真正的成功條件不是「再重寫 UI」，而是：
 
-- demo mode 有明確 runtime config injection，能靠 `indexeddb + static manifest + serverless latex` 正常運作
+- demo mode 有明確且固定的 preset 載入方式，能靠 `indexeddb + static manifest + serverless latex` 正常運作
 - demo mode 不再走 server filesystem API
 - `MainController` 繼續從 persistence / runtime 判斷 / custom symbol orchestration 中鬆開，但只做小切片
+- 如果目前工作樹中的 component / property / naming runtime 抽離成熟，就把它視為下一輪 seam；否則不要跟 demo preset 收尾混成同一個大改動
 - 方案 B 最終已在架構上接近「切換 provider」，不是「維護第二套前端」
 
 
