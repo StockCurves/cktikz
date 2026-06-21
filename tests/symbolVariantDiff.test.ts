@@ -50,4 +50,31 @@ describe("symbolVariantDiff", () => {
 		expect(diff.decoratorElements).toEqual([])
 		expect(collectComparableLeafs(document.getElementById("base")!)[0].xml).toContain('stroke="#000"')
 	})
+
+	it("includes inherited linecap, linejoin, and opacity in leaf identity", () => {
+		document.body.innerHTML = `
+			<svg>
+				<symbol id="base">
+					<g stroke="#000" stroke-linecap="round" stroke-linejoin="bevel" stroke-opacity=".5">
+						<path fill="none" d="M0 0h10"/>
+					</g>
+				</symbol>
+				<symbol id="variant">
+					<path fill="none" stroke="#000" stroke-linecap="round" stroke-linejoin="bevel" stroke-opacity=".5" d="M0 0h10"/>
+				</symbol>
+			</svg>
+		`
+
+		const diff = buildSymbolVariantDiff(
+			document.getElementById("base")!,
+			document.getElementById("variant")!
+		)
+
+		expect(diff.deletedBaseIndices.size).toBe(0)
+		expect(diff.decoratorElements).toEqual([])
+		const leafXml = collectComparableLeafs(document.getElementById("base")!)[0].xml
+		expect(leafXml).toContain('stroke-linecap="round"')
+		expect(leafXml).toContain('stroke-linejoin="bevel"')
+		expect(leafXml).toContain('stroke-opacity=".5"')
+	})
 })

@@ -479,6 +479,81 @@ describe("CustomSymbolDomService", () => {
 		expect(result.updatedRecord.symbols.node_custom_dpmos3_1).toContain("<circle")
 		expect(document.getElementById("node_custom_dpmos3_1")?.outerHTML).toContain("<circle")
 	})
+
+	it("preserves inherited stroke presentation attributes when rebuilding derived variants", () => {
+		document.body.innerHTML = `
+			<svg id="symbolDB">
+				<symbol id="node_base">
+					<g stroke="#000" stroke-width=".4" stroke-linecap="round" stroke-linejoin="bevel" stroke-opacity=".5">
+						<path d="M0 0h10" data-orig-index="0"/>
+					</g>
+				</symbol>
+				<symbol id="node_base_variant">
+					<g stroke="#000" stroke-width=".4" stroke-linecap="round" stroke-linejoin="bevel" stroke-opacity=".5">
+						<path d="M0 0h10" data-orig-index="0"/>
+						<circle cx="2" cy="2" r="1"/>
+					</g>
+				</symbol>
+				<component tikz="base" display="base" type="node">
+					<variant for="node_base"></variant>
+					<variant for="node_base_variant"><option name="decorated"/></variant>
+				</component>
+				<symbol id="node_custom_base_default">
+					<g stroke="#000" stroke-width=".4" stroke-linecap="round" stroke-linejoin="bevel" stroke-opacity=".5">
+						<path d="M0 0h10" data-orig-index="0"/>
+					</g>
+				</symbol>
+				<symbol id="node_custom_base_1">
+					<g stroke="#000" stroke-width=".4">
+						<path d="M0 0h10" data-orig-index="0"/>
+					</g>
+				</symbol>
+				<component tikz="custom-base" display="custom-base" type="node">
+					<variant for="node_custom_base_default" data-base-for="node_base"></variant>
+					<variant for="node_custom_base_1" data-base-for="node_base_variant"><option name="decorated"/></variant>
+				</component>
+			</svg>
+		`
+		const symbolDB = document.getElementById("symbolDB")!
+		const service = new CustomSymbolDomService()
+		const record = {
+			id: "custom-custom-base",
+			tikzName: "custom-base",
+			displayName: "custom-base",
+			isCustomSymbol: true,
+			baseSymbol: "base",
+			componentXml: `
+				<component tikz="custom-base" display="custom-base" type="node">
+					<variant for="node_custom_base_default" data-base-for="node_base"></variant>
+					<variant for="node_custom_base_1" data-base-for="node_base_variant"><option name="decorated"/></variant>
+				</component>
+			`,
+			symbols: {
+				node_custom_base_default: `
+					<symbol id="node_custom_base_default">
+						<g stroke="#000" stroke-width=".4" stroke-linecap="round" stroke-linejoin="bevel" stroke-opacity=".5">
+							<path d="M0 0h10" data-orig-index="0"/>
+						</g>
+					</symbol>
+				`,
+				node_custom_base_1: `
+					<symbol id="node_custom_base_1">
+						<g stroke="#000" stroke-width=".4">
+							<path d="M0 0h10" data-orig-index="0"/>
+						</g>
+					</symbol>
+				`,
+			},
+		}
+
+		service.loadCustomSymbolsIntoDom([record], symbolDB, [])
+
+		const rebuilt = record.symbols.node_custom_base_1
+		expect(rebuilt).toContain('stroke-linecap="round"')
+		expect(rebuilt).toContain('stroke-linejoin="bevel"')
+		expect(rebuilt).toContain('stroke-opacity=".5"')
+		expect(rebuilt).toContain("<circle")
+	})
 })
 
 describe("CustomSymbolService", () => {

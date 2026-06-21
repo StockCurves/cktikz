@@ -1,4 +1,4 @@
-import { TikzEditorController } from "../internal"
+import { CanvasController, TikzEditorController } from "../internal"
 import { createLiveRenderControllerRuntime } from "../services/controllerRuntime"
 import { LatexRenderService, prepareLatexSource } from "../services/latexRenderService"
 
@@ -73,6 +73,7 @@ export class LiveRenderController {
 			this.btnLiveRender?.classList.add("text-muted")
 
 			propertiesContainer?.classList.remove("d-none")
+			this.fitVisualEditorDeferred()
 		} else {
 			this.visualEditorTab?.classList.remove("active")
 			this.visualEditorTab?.classList.add("d-none")
@@ -90,7 +91,7 @@ export class LiveRenderController {
 			if (currentCode !== this.lastRenderedCode) {
 				this.renderTikz()
 			} else {
-				this.centerViewDeferred()
+				this.fitViewDeferred()
 			}
 		}
 	}
@@ -174,8 +175,8 @@ export class LiveRenderController {
 		requestAnimationFrame(() => this.fitView())
 	}
 
-	private centerViewDeferred() {
-		requestAnimationFrame(() => this.centerViewPreserveZoom())
+	private fitVisualEditorDeferred() {
+		requestAnimationFrame(() => CanvasController.instance?.fitView())
 	}
 
 	private clearRenderedContent() {
@@ -209,27 +210,6 @@ export class LiveRenderController {
 		const scaleY = (viewportRect.height - padding * 2) / contentRect.height
 		this.panScale = Math.min(scaleX, scaleY)
 		if (!Number.isFinite(this.panScale) || this.panScale <= 0) this.panScale = 1
-		this.panOffsetX = (viewportRect.width - contentRect.width * this.panScale) / 2
-		this.panOffsetY = (viewportRect.height - contentRect.height * this.panScale) / 2
-		this.applyTransform()
-	}
-
-	private centerViewPreserveZoom() {
-		if (!this.renderViewport || !this.contentElement) return
-		const viewportRect = this.renderViewport.getBoundingClientRect()
-		if (viewportRect.width <= 0 || viewportRect.height <= 0) return
-
-		let contentRect: DOMRect | null = null
-		if (this.contentElement instanceof HTMLIFrameElement) {
-			const doc = this.contentElement.contentDocument || this.contentElement.contentWindow?.document
-			const svg = doc?.querySelector("svg") as SVGSVGElement | null
-			if (svg) contentRect = svg.getBoundingClientRect()
-		} else {
-			contentRect = this.contentElement.getBoundingClientRect()
-		}
-
-		if (!contentRect || contentRect.width <= 0 || contentRect.height <= 0) return
-
 		this.panOffsetX = (viewportRect.width - contentRect.width * this.panScale) / 2
 		this.panOffsetY = (viewportRect.height - contentRect.height * this.panScale) / 2
 		this.applyTransform()

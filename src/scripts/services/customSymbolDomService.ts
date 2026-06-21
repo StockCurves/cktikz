@@ -1,5 +1,5 @@
 import { ComponentSymbol } from "../components/componentSymbol"
-import { buildSymbolVariantDiff } from "../utils/symbolVariantDiff"
+import { buildSymbolVariantDiff, inheritedPresentationAttributes } from "../utils/symbolVariantDiff"
 
 export type RenameCustomGraphicsSymbolDomResult = {
 	updatedRecord: any
@@ -127,14 +127,13 @@ export class CustomSymbolDomService {
 	private collectEditableLeafXml(symbolNode: Element): string[] {
 		const leafXml: string[] = []
 		let leafIndex = 0
-		const inheritedAttributes = ["class", "fill", "stroke", "stroke-miterlimit", "stroke-width"]
 
 		const traverse = (node: Element, inherited: Map<string, string>) => {
 			const tag = node.tagName.toLowerCase()
 			if (tag === "pin" || node.classList.contains("clickBackground")) return
 
 			const nextInherited = new Map(inherited)
-			for (const attrName of inheritedAttributes) {
+			for (const attrName of inheritedPresentationAttributes) {
 				if (node.hasAttribute(attrName)) {
 					nextInherited.set(attrName, node.getAttribute(attrName)!)
 				}

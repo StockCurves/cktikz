@@ -3,7 +3,8 @@ import "@svgdotjs/svg.draggable.js"
 import { Modal } from "bootstrap"
 import { ComponentSymbol, TikZAnchor } from "../components/componentSymbol"
 import { defaultStroke, defaultFill } from "../utils/utils"
-import { buildSymbolVariantDiff } from "../utils/symbolVariantDiff"
+import { buildSymbolVariantDiff, inheritedPresentationAttributes } from "../utils/symbolVariantDiff"
+import { resolveEditorFill, resolveEditorPathFill } from "../utils/symbolEditorFill"
 import type { CircuitComponent } from "../components/circuitComponent"
 import type { CustomSymbolRecord } from "../services/customSymbolService"
 
@@ -483,13 +484,14 @@ export class SymbolEditorController {
 			const flatElements: SVG.Element[] = []
 			let rawLeafIndex = 0
 
-			const collectFlatElements = (el: SVG.Element, inheritedStyles: { stroke?: string; strokeWidth?: string; fill?: string; className?: string }) => {
+			const collectFlatElements = (el: SVG.Element, inheritedStyles: Map<string, string>) => {
 				if (el.node.tagName.toLowerCase() === "g") {
-					const currentStyles = {
-						stroke: el.node.hasAttribute("stroke") ? el.attr("stroke") : inheritedStyles.stroke,
-						strokeWidth: el.node.hasAttribute("stroke-width") ? el.attr("stroke-width") : inheritedStyles.strokeWidth,
-						fill: el.node.hasAttribute("fill") ? el.attr("fill") : inheritedStyles.fill,
-						className: el.node.hasAttribute("class") ? el.attr("class") : inheritedStyles.className
+					const currentStyles = new Map(inheritedStyles)
+					for (const attrName of inheritedPresentationAttributes) {
+						if (el.node.hasAttribute(attrName)) {
+							const value = el.node.getAttribute(attrName)
+							if (value !== null) currentStyles.set(attrName, value)
+						}
 					}
 					const children = el.children()
 					for (const child of children) {
@@ -497,15 +499,21 @@ export class SymbolEditorController {
 					}
 				} else {
 					// Inherit styles if not set on the leaf node
-					if (inheritedStyles.stroke && !el.node.hasAttribute("stroke")) el.attr("stroke", inheritedStyles.stroke)
-					if (inheritedStyles.strokeWidth && !el.node.hasAttribute("stroke-width")) el.attr("stroke-width", inheritedStyles.strokeWidth)
+					for (const [attrName, value] of inheritedStyles) {
+						if (!el.node.hasAttribute(attrName)) el.attr(attrName, value)
+					}
 					
-					const finalFill = el.node.hasAttribute("fill") ? el.attr("fill") : (inheritedStyles.fill || "none")
+					const explicitFill = el.node.getAttribute("fill")
+					const inheritedFill = inheritedStyles.get("fill")
+					const finalFill = el.node.tagName.toLowerCase() === "path"
+						? resolveEditorPathFill(el.attr("d"), explicitFill, inheritedFill)
+						: resolveEditorFill(el.node.tagName.toLowerCase(), explicitFill, inheritedFill)
 					el.attr("fill", finalFill)
 
-					if (inheritedStyles.className) {
+					const inheritedClassName = inheritedStyles.get("class")
+					if (inheritedClassName) {
 						const childClass = el.attr("class")
-						el.attr("class", childClass ? `${childClass} ${inheritedStyles.className}` : inheritedStyles.className)
+						el.attr("class", childClass ? `${childClass} ${inheritedClassName}` : inheritedClassName)
 					}
 					if (el.node.tagName.toLowerCase() === "path" && finalFill === "none") {
 						const pathStr = el.attr("d")
@@ -559,7 +567,7 @@ export class SymbolEditorController {
 					if (tag === "rect" && node.classList.contains("clickBackground")) continue
 					
 					const adopted = SVG.adopt(node.cloneNode(true) as HTMLElement)
-					collectFlatElements(adopted, {})
+					collectFlatElements(adopted, new Map())
 				}
 			}
 

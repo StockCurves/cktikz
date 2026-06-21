@@ -3,7 +3,7 @@ type LeafSnapshot = {
 	xml: string
 }
 
-const inheritedPresentationAttributes = [
+export const inheritedPresentationAttributes = [
 	"class",
 	"clip-rule",
 	"fill",
