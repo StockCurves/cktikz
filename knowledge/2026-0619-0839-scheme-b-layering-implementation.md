@@ -150,10 +150,28 @@
   - 新增 `src/scripts/config/runtimeBootstrap.ts`
   - 正式入口已收斂成 `meta[name="circuitikz-runtime"]`
   - `src/scripts/index.ts` 已在 app import 前先執行 `bootstrapRuntimeConfig()`
+- `componentRuntime` / `propertyRuntime` / `namingRuntime` 的 wiring 已從 `MainController` 建構子中的三段 `configure...` 內聯初始化，收斂到 `src/scripts/controllers/mainControllerRuntime.ts`
+- `tests/mainControllerRuntime.test.ts` 已補上這個 runtime seam 的 focused coverage，確認 property / naming / component 三組 callback 仍正確接回 `MainController` 依賴
+- `SymbolEditorController.instance.configure(...)`、`configureTikzParserRuntime(...)`、`GroupComponent.setCreateSubcircuitHandler(...)` 也已從 `MainController` 內聯 wiring 收斂到 `src/scripts/controllers/mainControllerBootstrap.ts`
+- `tests/mainControllerBootstrap.test.ts` 已補上 bootstrap seam coverage，確認 symbol editor runtime、tikz parser runtime、group subcircuit handler 注入仍成立
+- export button / canvas context menu / dark-mode switch / symbol color preprocess 這段 post-init UI glue，已從 `MainController` 內聯流程收斂到 `src/scripts/controllers/mainControllerUiBootstrap.ts`
+- `tests/mainControllerUiBootstrap.test.ts` 已補上 UI bootstrap coverage，確認 export/context menu/theme 綁定仍成立
+- `addSaveStateManagement()` 內原本混在一起的 tab save-state / tab-management / broadcast startup wiring，已收斂到 `src/scripts/controllers/mainControllerTabBootstrap.ts`
+- `tests/mainControllerTabBootstrap.test.ts` 已補上 tab bootstrap coverage，確認 database open、session initialize、broadcast reaction 仍成立
+- `initShortcuts()` 內原本混在一起的 hotkey / undo-redo / component shortcut wiring，已收斂到 `src/scripts/controllers/mainControllerShortcutBootstrap.ts`
+- `tests/mainControllerShortcutBootstrap.test.ts` 已補上 shortcut bootstrap coverage，確認 hotkey registration 與主要 callback 分支仍成立
+- `initModeButtons()` 內原本混在一起的 mode button DOM binding，已收斂到 `src/scripts/controllers/mainControllerModeBootstrap.ts`
+- `tests/mainControllerModeBootstrap.test.ts` 已補上 mode bootstrap coverage，確認 pan/draw-line/eraser 綁定仍成立
+- 版本字串、初始 theme 狀態、`designName` 的 title / export filename / broadcast wiring，已收斂到 `src/scripts/controllers/mainControllerDocumentBootstrap.ts`
+- `tests/mainControllerDocumentBootstrap.test.ts` 已補上 document bootstrap coverage，確認 default theme、version label、design name 變更行為仍成立
+- `loadMathJax()` 這段 startup dependency 載入，已收斂到 `src/scripts/controllers/mainControllerMathJaxBootstrap.ts`
+- `tests/mainControllerMathJaxBootstrap.test.ts` 已補上 MathJax bootstrap coverage，確認 script append / load resolve / 既有 `window.MathJax` 保留行為仍成立
+- `Promise.all(...).then(...)` 內原本混在一起的 post-init app startup orchestration，已收斂到 `src/scripts/controllers/mainControllerAppBootstrap.ts`
+- `tests/mainControllerAppBootstrap.test.ts` 已補上 app bootstrap coverage，確認 post-init 呼叫序、template init error handling、pending data / initDone 行為仍成立
 - demo mode 的主要未完項已從「建立 preset 入口」轉成「驗證與收尾」：
   - 確認實際 demo 啟動路徑真的固定走 `indexeddb + static-manifest + serverless-proxy`
   - 確認 demo mode 不會再走 `/api/files`、`/api/file`、`/api/save`、`/api/delete`
-  - 決定正式的 demo 啟動介面要用 query、HTML data/meta，還是 branch/deploy-time 注入
+  - 維持正式入口只用 deploy-time 注入的 `meta[name="circuitikz-runtime"]`，不要再恢復平行入口
 
 ### 四層目標
 
@@ -253,6 +271,31 @@
 
 第 6 點要視為「依現況排序的 rollout 狀態」，不是重新畫藍圖。
 
+### 第 6 點目前已完成哪些
+
+截至目前工作樹，第 6 點已經完成的，不只是 runtime/provider 骨架，還包括一批直接從 `MainController` 抽出的 runtime/bootstrap seam。
+
+可以直接視為已完成的項目：
+
+- `runtimeConfig` / `appRuntime` / `controllerRuntime` 已建立，controller 不再自己決定 server/local provider。
+- `TemplateController` / `LiveRenderController` 已改由 runtime 取依賴。
+- tab / work / template 流程已經有 application service / repository 邊界。
+- demo runtime preset 已正式接上，而且 deploy-time 入口已收斂成單一 `meta[name="circuitikz-runtime"]`。
+- `build:demo` / `deploy:demo` 已存在，可產生 demo preset 產物。
+- `MainController` 內 startup/runtime wiring 已抽成獨立 seam：
+  - `mainControllerRuntime`
+  - `mainControllerBootstrap`
+  - `mainControllerUiBootstrap`
+  - `mainControllerTabBootstrap`
+  - `mainControllerShortcutBootstrap`
+  - `mainControllerModeBootstrap`
+  - `mainControllerDocumentBootstrap`
+  - `mainControllerMathJaxBootstrap`
+  - `mainControllerAppBootstrap`
+- 上述 seam 都已補 focused tests，且目前這一輪已可視為 runtime/provider/bootstrap 類切塊的主要 checkpoint。
+
+換句話說，第 6 點前半段「把切換點與 wiring 從 `MainController` 內聯流程抽出」這件事，已經不是計畫，而是現在進行式中的既成事實。
+
 ### 第一階段：收斂 `MainController` 依賴注入邊界
 
 已完成：
@@ -266,6 +309,7 @@
 結論：
 
 - controller 內直接 `new repository/service` 的舊做法已經開始退場
+- 這一階段現在可再往前補一句：`MainController` 內原本分散的 runtime/configure wiring，已被 `mainControllerRuntime` / `mainControllerBootstrap` / `mainControllerUiBootstrap` / `mainControllerTabBootstrap` / `mainControllerShortcutBootstrap` / `mainControllerModeBootstrap` / `mainControllerDocumentBootstrap` / `mainControllerMathJaxBootstrap` / `mainControllerAppBootstrap` 吸走
 
 ### 第二階段：把 tab / work / template 流程抽成 application service
 
@@ -297,11 +341,13 @@
 - `src/scripts/index.ts` 已在動態 import `MainController` 前先套用 runtime preset
 - `tests/runtimeBootstrap.test.ts` 已覆蓋 preset 解析與 override 合併行為
 - `tests/apiServices.test.ts` 已補上 demo providers 不碰 server filesystem API 的回歸測試
+- `package.json` 已有 `build:demo` / `deploy:demo`
+- `scripts/set-runtime-preset.js` 已可在 build 後把 `dist/index.html` 的 runtime meta 改成 `demo`
 
 尚未完成：
 
-- `build:demo` / deploy 流程是否已在 demo branch 與實際 hosting 設定中被固定採用，仍要持續維護。
-- 補一次實際 build / deploy 角度的驗證，確認 demo 啟動模式確實固定成 `indexeddb + static-manifest + serverless-proxy`。
+- demo branch / hosting 平台是否已長期固定採用 `npm run build:demo`，仍要持續維護。
+- 若之後 hosting 設定調整，仍要再驗一次最終 deploy 出去的 artifact 是否確實固定成 `indexeddb + static-manifest + serverless-proxy`。
 
 ### 第四階段：接上 custom symbol / 方案 B 專用實作
 
@@ -319,15 +365,26 @@ custom symbol / component library 這條線目前已完成大半：
 - `SymbolLibraryMenuController` 已建立，且已接上 `openAndExecute()` 這種一站式 symbol menu 協調入口
 - `AddComponentOffcanvasController` 已建立，接手 initAddComponentOffcanvas() 的 toolbar / shape / component-library orchestration
 - `controllerRuntime` 已建立，專門收斂 `TemplateController` / `LiveRenderController` 的 runtime wiring
+- `mainControllerRuntime` 已建立，先接住 `componentRuntime` / `propertyRuntime` / `namingRuntime` 三條 `MainController` callback wiring
+- `mainControllerBootstrap` 已建立，接住 `SymbolEditorController` / `tikzParserRuntime` / `GroupComponent` 的 bootstrap wiring
+- `mainControllerUiBootstrap` 已建立，接住 export/context menu/theme/symbol-color 這段 DOM startup wiring
+- `mainControllerTabBootstrap` 已建立，接住 tab save-state / tab-management / broadcast 這段 startup wiring
+- `mainControllerShortcutBootstrap` 已建立，接住 hotkey / undo-redo / component shortcut 這段 startup wiring
+- `mainControllerModeBootstrap` 已建立，接住 mode button 這段 DOM startup wiring
+- `mainControllerDocumentBootstrap` 已建立，接住 version/theme/design-name 這段 document startup wiring
+- `mainControllerMathJaxBootstrap` 已建立，接住 MathJax startup dependency 載入
+- `mainControllerAppBootstrap` 已建立，接住 post-init app startup orchestration
 - `customSymbolDrawerActionsFactory` 已把 drawer 的 placement / runtime callback 組裝從 `MainController` 抽出去
 - `CustomSymbolSubcircuitSaveController` 已建立，接手 selection/group/save/restore/persist 這條 subcircuit save orchestration
 - `MainController.renameCustomGraphicsSymbol()` / `duplicateSymbol()` / `deleteCustomGraphicsSymbol()` 已改走 application service
 - base symbol DB 的 fetch / parse / append / runtime extract 已從 `MainController.initSymbolDB()` 移出
 
-但這一階段還沒完全結束，因為：
+但這一階段已接近收口，目前剩下的比較像是刻意保留在 `MainController` 的範圍，而不是還沒拆到的 bootstrap 漏洞。現況是：
 
-- `MainController` 仍保有少量 custom symbol UI glue，但 selection/save orchestration、category mutation、graphics symbol mutation、add-component offcanvas orchestration 已經再往專用 controller 收斂
+- `MainController` 仍保有少量 custom symbol UI glue，但 selection/save orchestration、category mutation、graphics symbol mutation、add-component offcanvas orchestration 已經收斂到專用 controller
 - `MainController` 仍保有 façade 型 public methods，供舊呼叫點和 controller 間 callback 使用
+- `switchMode()`、`updateTheme()`、`saveCurrentState()` 這類直接代表 app shell 行為的核心方法，現階段不建議為了切塊再硬拆成 bootstrap/module
+- `initCanvas()`、`initSymbolDB()`、`initAddComponentOffcanvas()` 這類已經很薄的 wrapper，除非未來責任再次膨脹，否則不值得再拆
 - demo mode 的啟動/部署設定還需持續對齊
 - `api/latex.js` 已成為 serverless provider 入口，但 runtime 預設仍是正式版 server-backed mode
 
@@ -337,8 +394,11 @@ custom symbol / component library 這條線目前已完成大半：
 
 1. 在 demo branch / hosting 流程固定使用 `npm run build:demo`。
 2. 用 targeted tests + build 驗證 demo runtime 不再依賴 `/api/files`、`/api/file`、`/api/save`、`/api/delete`。
-3. 繼續把 `MainController` 剩下的 façade / custom symbol UI glue 用小切片收斂，避免一次大改。
-4. 依照目前工作樹的新切片方向，評估是否把 component / property / naming 這類 runtime callback 也正式整理成下一輪分層 seam。
+3. 把這一批 runtime/bootstrap seam 以 commit checkpoint 固定下來，避免後續 demo 收尾或功能改動又把 wiring 塞回 `MainController`。
+4. 如果之後還要繼續動 `MainController`，只再碰兩種東西：
+   - 真的還在 inline startup glue 的區塊
+   - 已經證明會持續膨脹的 façade/wrapper
+5. 不再把 `switchMode()`、`updateTheme()`、`saveCurrentState()` 這類 app shell 核心方法當成優先拆分對象。
 
 ## 7. 後續開發限制
 
@@ -396,6 +456,15 @@ custom symbol / component library 這條線目前已完成大半：
 - `customSymbolSelectionController.test.ts`
 - `componentLibraryController.test.ts`
 - `mainController.renameCustomGraphicsSymbol.test.ts`
+- `mainControllerRuntime.test.ts`
+- `mainControllerBootstrap.test.ts`
+- `mainControllerUiBootstrap.test.ts`
+- `mainControllerTabBootstrap.test.ts`
+- `mainControllerShortcutBootstrap.test.ts`
+- `mainControllerModeBootstrap.test.ts`
+- `mainControllerDocumentBootstrap.test.ts`
+- `mainControllerMathJaxBootstrap.test.ts`
+- `mainControllerAppBootstrap.test.ts`
 - `symbolLibraryService.test.ts`
 - `indexedDbTemplateDataSource.test.ts`
 - `staticTemplateDataSource.test.ts`
@@ -414,7 +483,22 @@ custom symbol / component library 這條線目前已完成大半：
 - 文件更新本身不用跑測試，但要重新檢查第 5-9 點沒有互相矛盾。
 - demo preset / runtime bootstrap 這一輪完成後，先跑：
   - `npm.cmd test -- tests/runtimeBootstrap.test.ts tests/apiServices.test.ts tests/controllerRuntime.test.ts tests/templateController.test.ts tests/latexProxy.test.ts`
-- 如果下一輪開始處理 component / property / naming runtime seam，再加跑對應 focused tests。
+- component / property / naming runtime seam 已抽成 `mainControllerRuntime`，且 parser/editor/group wiring 已抽成 `mainControllerBootstrap` 後，至少加跑：
+  - `npm.cmd test -- tests/mainControllerRuntime.test.ts tests/mainControllerBootstrap.test.ts tests/tikzParser.test.ts tests/groupComponent.test.ts`
+- 如果再動到 export/context menu/theme/symbol-color 這段 UI bootstrap，至少加跑：
+  - `npm.cmd test -- tests/mainControllerUiBootstrap.test.ts tests/mainControllerBootstrap.test.ts tests/mainControllerRuntime.test.ts`
+- 如果再動到 tab save-state / tab-management / broadcast startup bootstrap，至少加跑：
+  - `npm.cmd test -- tests/mainControllerTabBootstrap.test.ts tests/tabApplicationService.test.ts tests/tabBroadcastService.test.ts tests/tabLifecycleService.test.ts tests/tabManagementController.test.ts`
+- 如果再動到 shortcut / undo-redo / component shortcut bootstrap，至少加跑：
+  - `npm.cmd test -- tests/mainControllerShortcutBootstrap.test.ts tests/mainControllerTabBootstrap.test.ts tests/mainControllerUiBootstrap.test.ts`
+- 如果再動到 mode button bootstrap，至少加跑：
+  - `npm.cmd test -- tests/mainControllerModeBootstrap.test.ts tests/mainControllerShortcutBootstrap.test.ts tests/mainControllerUiBootstrap.test.ts`
+- 如果再動到 version/theme/design-name 這段 document bootstrap，至少加跑：
+  - `npm.cmd test -- tests/mainControllerDocumentBootstrap.test.ts tests/mainControllerUiBootstrap.test.ts tests/mainControllerTabBootstrap.test.ts`
+- 如果再動到 MathJax startup bootstrap，至少加跑：
+  - `npm.cmd test -- tests/mainControllerMathJaxBootstrap.test.ts tests/mainControllerDocumentBootstrap.test.ts tests/mainControllerUiBootstrap.test.ts`
+- 如果再動到 post-init app startup bootstrap，至少加跑：
+  - `npm.cmd test -- tests/mainControllerAppBootstrap.test.ts tests/mainControllerMathJaxBootstrap.test.ts tests/mainControllerUiBootstrap.test.ts tests/mainControllerTabBootstrap.test.ts`
 - 如果碰到 custom symbol callback / façade cleanup，再加跑相關 custom-symbol focused tests。
 - 最後跑 `npm.cmd run build`；若遇到 Windows / Parcel temp path `ENOENT unlink`，改用 isolated cache / dist build 作輔助驗證。
 
@@ -438,7 +522,7 @@ custom symbol / component library 這條線目前已完成大半：
 - demo mode 有明確且固定的 preset 載入方式，並可透過 `npm run build:demo` 產生 `indexeddb + static manifest + serverless latex` 的部署產物
 - demo mode 不再走 server filesystem API
 - `MainController` 繼續從 persistence / runtime 判斷 / custom symbol orchestration 中鬆開，但只做小切片
-- 如果目前工作樹中的 component / property / naming runtime 抽離成熟，就把它視為下一輪 seam；否則不要跟 demo preset 收尾混成同一個大改動
+- runtime/provider/bootstrap 類切塊到這一輪已基本收口，後續若再動 `MainController`，優先做小範圍 cleanup，不再為切塊而切塊
 - 方案 B 最終已在架構上接近「切換 provider」，不是「維護第二套前端」
 
 

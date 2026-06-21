@@ -23,12 +23,17 @@ import { ModalDialogService } from "../services/modalDialogService"
 import { getAppRuntime } from "../services/appRuntime"
 import type { BroadcastMessage, BroadcastMessageType } from "../services/tabBroadcastService"
 import { preprocessSymbolColors } from "../utils/symbolColorTheme"
-import { configureTikzParserRuntime } from "../utils/tikzParser"
-import { configurePropertyRuntime } from "../properties/propertyRuntime"
-import { configureNamingRuntime } from "../mixins/namingRuntime"
-import { configureComponentRuntime } from "../components/componentRuntime"
 import { SnapDragHandler } from "../snapDrag/dragHandlers"
 import { SnapCursorController } from "../snapDrag/snapCursor"
+import { configureMainControllerRuntime } from "./mainControllerRuntime"
+import { configureMainControllerBootstrap } from "./mainControllerBootstrap"
+import { initializeMainControllerUiBootstrap } from "./mainControllerUiBootstrap"
+import { initializeMainControllerTabBootstrap } from "./mainControllerTabBootstrap"
+import { initializeMainControllerShortcutBootstrap } from "./mainControllerShortcutBootstrap"
+import { initializeMainControllerModeBootstrap } from "./mainControllerModeBootstrap"
+import { initializeMainControllerDocumentBootstrap } from "./mainControllerDocumentBootstrap"
+import { initializeMainControllerMathJaxBootstrap } from "./mainControllerMathJaxBootstrap"
+import { initializeMainControllerAppBootstrap } from "./mainControllerAppBootstrap"
 import {
 	CanvasController,
 	ExportController,
@@ -235,57 +240,34 @@ export class MainController {
 		MainController._instance = this
 		this.isMac = window.navigator.userAgent.toUpperCase().indexOf("MAC") >= 0
 		this.broadcastChannel = new BroadcastChannel("circuitikz-designer")
-		configurePropertyRuntime({
-			enterDragPanMode: () => this.switchMode(Modes.DRAG_PAN),
-			markDraggingInput: (element) => {
+		configureMainControllerRuntime({
+			switchMode: (mode) => this.switchMode(mode as Modes),
+			draggingInputTarget: CanvasController.instance,
+			setDraggingInputTarget: (element) => {
 				if (CanvasController.instance) {
 					CanvasController.instance.draggingFromInput = element
 				}
 			},
 			addUndoState: () => Undo.addState(),
-		})
-		configureNamingRuntime({
-			isNameTaken: (text, self) =>
-				this.circuitComponents.some((component) => {
-					if (component === self || !("name" in component)) {
-						return false
-					}
-					const otherName = (component as CircuitComponent & { name?: TextProperty }).name
-					return text !== "" && otherName?.value === text
-			}),
-			createExportId: (prefix) => ExportController.instance.createExportID(prefix),
-		})
-		configureComponentRuntime({
-			registerComponent: (component) => this.addComponent(component as CircuitComponent),
-			removeComponent: (component) => this.removeComponent(component as CircuitComponent),
+			circuitComponents: this.circuitComponents,
+			addComponent: (component) => this.addComponent(component),
+			removeComponent: (component) => this.removeComponent(component),
 			createSelectionElement: () => CanvasController.instance.canvas.rect(0, 0),
 			createVisualizationGroup: () => CanvasController.instance.canvas.group(),
 			putSelectionElement: (element) => CanvasController.instance.canvas.put(element),
 			setSnapCursorVisible: (visible) => { SnapCursorController.instance.visible = visible },
-			snapDrag: (component, enable, dragElement) =>
-				SnapDragHandler.snapDrag(component as CircuitComponent, enable, dragElement),
-			bringToForeground: (components) => CanvasController.instance.componentsToForeground(components as CircuitComponent[]),
-			sendToBackground: (components) => CanvasController.instance.componentsToBackground(components as CircuitComponent[]),
-			moveForward: (components) => CanvasController.instance.moveComponentsForward(components as CircuitComponent[]),
-			moveBackward: (components) => CanvasController.instance.moveComponentsBackward(components as CircuitComponent[]),
-			addUndoState: () => Undo.addState(),
+			snapDrag: (component, enable, dragElement) => SnapDragHandler.snapDrag(component, enable, dragElement),
+			bringToForeground: (components) => CanvasController.instance.componentsToForeground(components),
+			sendToBackground: (components) => CanvasController.instance.componentsToBackground(components),
+			moveForward: (components) => CanvasController.instance.moveComponentsForward(components),
+			moveBackward: (components) => CanvasController.instance.moveComponentsBackward(components),
 			getSelectionReference: () => SelectionController.instance.referenceComponent,
 			setSelectionReference: (component) => {
-				SelectionController.instance.referenceComponent = component as CircuitComponent | null
+				SelectionController.instance.referenceComponent = component
 			},
+			createExportId: (prefix) => ExportController.instance.createExportID(prefix),
+			dragPanMode: Modes.DRAG_PAN,
 		})
-
-		// dark mode init
-		const htmlElement = document.documentElement
-		const switchElement = document.getElementById("darkModeSwitch") as HTMLInputElement
-		this.currentTheme = "light"
-		htmlElement.setAttribute("data-bs-theme", "light")
-		localStorage.setItem("circuitikz-designer-theme", "light")
-		this.darkModeLast = false
-		this.darkMode = false
-		if (switchElement) {
-			switchElement.checked = false
-		}
 
 		let mathJaxPromise = this.loadMathJax()
 		let canvasPromise = this.initCanvas()
@@ -297,26 +279,26 @@ export class MainController {
 		let fontPromise = Promise.all([document.fonts.load("1em Computer Modern Serif"), loadTextConverter()])
 
 		MainController.appVersion = version
-		document.addEventListener("DOMContentLoaded", () => {
-			for (const element of document.getElementsByClassName("version")) {
-				element.textContent = "v" + version
-			}
-		})
-
-		const fileExportName = document.getElementById("exportModalFileBasename") as HTMLInputElement
 		this.designName = new TextProperty("Design Name", "")
-		this.designName.addChangeListener(() => {
-			document.title = this.designName.value + (this.designName.value ? " - " : "") + "VisioCirkit"
-			fileExportName.placeholder =
-				MainController.instance.designName.value.replace(/[^a-z0-9]/gi, "_") || "Circuit"
-
-			this.tabApplicationService.updateDesignName(this.tabID, MainController.instance.designName.value || undefined).then((updated) => {
-				if (!updated) return
+		initializeMainControllerDocumentBootstrap({
+			version,
+			designName: this.designName,
+			setDarkModeState: (darkMode) => {
+				this.darkMode = darkMode
+			},
+			setDarkModeLastState: (darkMode) => {
+				this.darkModeLast = darkMode
+			},
+			setCurrentTheme: (theme) => {
+				this.currentTheme = theme
+			},
+			updateDesignName: (name) => this.tabApplicationService.updateDesignName(this.tabID, name),
+			sendUpdateBroadcast: () => {
 				MainController.instance.sendBroadcastMessage("update")
-			})
+			},
 		})
 
-		SymbolEditorController.instance.configure({
+		configureMainControllerBootstrap({
 			openPrompt: this.modalDialogService.openPrompt.bind(this.modalDialogService),
 			openAlert: this.modalDialogService.openAlert.bind(this.modalDialogService),
 			findCustomSymbol: (symbolId) => this.customSymbols.find((symbol) => symbol.id === symbolId),
@@ -325,41 +307,17 @@ export class MainController {
 			persistCustomSymbol: (customSymbol) => this.customSymbolCatalogController.putCustomSymbolRecord(customSymbol),
 			refreshCustomCategories: () => this.customSymbolCatalogController.loadAndRenderCustomCategories(),
 			preprocessSymbolColors,
-		})
-
-		configureTikzParserRuntime({
-			getSymbols: () => this.symbols,
+			getRuntimeSymbols: () => this.symbols,
 			addParsedSubcircuit: (categoryName, symbolId, customSymbolData) =>
 				this.customSymbolCatalogController.addSymbolToCategory(categoryName, symbolId, customSymbolData),
-		})
-
-		GroupComponent.setCreateSubcircuitHandler(() => {
-			void this.customSymbolSubcircuitSaveController.createSubcircuitFromSelection()
+			createSubcircuitFromSelection: () => this.customSymbolSubcircuitSaveController.createSubcircuitFromSelection(),
 		})
 
 		this.initModeButtons()
 
 		this.updateTooltips()
 
-		// init exporting
 		ExportController.instance
-		const exportCircuiTikZButton: HTMLButtonElement = document.getElementById(
-			"exportCircuiTikZButton"
-		) as HTMLButtonElement
-		exportCircuiTikZButton.addEventListener(
-			"click",
-			() => {
-				TikzEditorController.instance.toggleVisibility()
-			},
-			{
-				passive: true,
-			}
-		)
-
-		const exportSVGButton: HTMLButtonElement = document.getElementById("exportSVGButton") as HTMLButtonElement
-		exportSVGButton.addEventListener("click", ExportController.instance.exportSVG.bind(ExportController.instance), {
-			passive: true,
-		})
 
 		canvasPromise.then(() => {
 			EraseController.instance
@@ -369,72 +327,59 @@ export class MainController {
 		})
 		this.addSaveStateManagement(dbResolve)
 		this.initPromise = Promise.all([canvasPromise, symbolsDBPromise, mathJaxPromise, fontPromise, dbPromise]).then(async () => {
-			document.getElementById("loadingSpinner")?.classList.add("d-none")
-			await this.loadCustomSymbolsIntoSymbolDB()
-			this.initAddComponentOffcanvas()
-			this.initShortcuts()
-			TikzEditorController.instance.init()
-			LiveRenderController.instance.init()
-
-			// Prevent "normal" browser menu
-			document
-				.getElementById("canvas")
-				.addEventListener("contextmenu", (evt) => {
-					evt.preventDefault()
-					if (SelectionController.instance.currentlySelectedComponents.length > 0) {
-						const selected = SelectionController.instance.currentlySelectedComponents
-						const menuEntries = []
-						
-						if (selected.length > 1) {
-							menuEntries.push({ result: "group", text: "Group Selection" })
-						}
-						
-						if (selected.length === 1 && (selected[0] instanceof GroupComponent || selected[0].constructor.name === "GroupComponent" || selected[0].constructor.name === "SubcircuitComponent")) {
-							menuEntries.push({ result: "ungroup", text: "Ungroup" })
-						}
-						
-						menuEntries.push({ result: "subcircuit", text: "Save Selection as Symbol..." })
-						
-						const menu = new ContextMenu(menuEntries)
-						menu.openForResult(evt.clientX, evt.clientY).then((res) => {
-							if (res === "group") {
-								GroupComponent.group(selected)
-							} else if (res === "ungroup") {
-								(selected[0] as GroupComponent).ungroup()
-							} else if (res === "subcircuit") {
-								this.createSubcircuitFromSelection()
+			await initializeMainControllerAppBootstrap({
+				hideLoadingSpinner: () => {
+					document.getElementById("loadingSpinner")?.classList.add("d-none")
+				},
+				loadCustomSymbolsIntoSymbolDB: () => this.loadCustomSymbolsIntoSymbolDB(),
+				initAddComponentOffcanvas: () => this.initAddComponentOffcanvas(),
+				initShortcuts: () => this.initShortcuts(),
+				initTikzEditor: () => {
+					TikzEditorController.instance.init()
+				},
+				initLiveRender: () => {
+					LiveRenderController.instance.init()
+				},
+				initUiBootstrap: () => {
+					initializeMainControllerUiBootstrap({
+						toggleTikzEditor: () => TikzEditorController.instance.toggleVisibility(),
+						exportSvg: ExportController.instance.exportSVG.bind(ExportController.instance),
+						getSelectedComponents: () => SelectionController.instance.currentlySelectedComponents,
+						isGroupComponent: (component) =>
+							component instanceof GroupComponent ||
+							(component as { constructor?: { name?: string } })?.constructor?.name === "GroupComponent" ||
+							(component as { constructor?: { name?: string } })?.constructor?.name === "SubcircuitComponent",
+						groupSelection: (components) => GroupComponent.group(components as CircuitComponent[]),
+						ungroupSelection: (component) => component.ungroup(),
+						createSubcircuitFromSelection: () => this.createSubcircuitFromSelection(),
+						createContextMenu: (entries) => new ContextMenu(entries),
+						preprocessAllSymbolColors: () => {
+							for (const g of this.symbolsSVG.defs().node.querySelectorAll("symbol>g")) {
+								preprocessSymbolColors(g)
 							}
-						}).catch(() => {})
+						},
+						onThemeChanged: (darkMode) => {
+							MainController.instance.darkMode = darkMode
+						},
+						updateTheme: () => MainController.instance.updateTheme(),
+					})
+				},
+				updatePropertiesPanel: () => {
+					PropertyController.instance.update()
+				},
+				initializeTemplates: () => TemplateController.instance.initialize(),
+				loadPendingData: () => {
+					if (MainController.instance.pendingLoadData) {
+						SaveController.instance.loadFromJSON(MainController.instance.pendingLoadData)
 					}
-				}, { passive: false })
-
-			// prepare symbolDB for colorTheme
-			for (const g of this.symbolsSVG.defs().node.querySelectorAll("symbol>g")) {
-				preprocessSymbolColors(g)
-			}
-
-			const htmlElement = document.documentElement
-			const switchElement = document.getElementById("darkModeSwitch") as HTMLInputElement
-			switchElement.addEventListener("change", function () {
-				if ((MainController.instance.darkMode = switchElement.checked)) {
-					htmlElement.setAttribute("data-bs-theme", "dark")
-					localStorage.setItem("circuitikz-designer-theme", "dark")
-				} else {
-					htmlElement.setAttribute("data-bs-theme", "light")
-					localStorage.setItem("circuitikz-designer-theme", "light")
-				}
-				MainController.instance.updateTheme()
+				},
+				markInitDone: () => {
+					this.isInitDone = true
+				},
+				reportTemplateInitializeError: (err) => {
+					console.error("Error loading templates:", err)
+				},
 			})
-			MainController.instance.updateTheme()
-			PropertyController.instance.update()
-			
-			TemplateController.instance.initialize().catch((err) => console.error("Error loading templates:", err))
-
-			if (MainController.instance.pendingLoadData) {
-				SaveController.instance.loadFromJSON(MainController.instance.pendingLoadData)
-			}
-
-			this.isInitDone = true
 		})
 	}
 
@@ -468,159 +413,65 @@ export class MainController {
 	}
 
 	private async loadMathJax() {
-		var promise = new Promise((resolve) => {
-			if (!("MathJax" in window)) {
-				;(window as any).MathJax = {
-					tex: {
-						inlineMath: { "[+]": [["$", "$"]] },
-					},
-				}
-			}
-			var script = document.createElement("script")
-			script.src = "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"
-			document.head.appendChild(script)
-
-			script.addEventListener(
-				"load",
-				function () {
-					resolve("")
-				},
-				false
-			)
-		})
-		return promise
+		return initializeMainControllerMathJaxBootstrap()
 	}
 
 	/**
 	 * handle tabs and save state management
 	 */
 	private addSaveStateManagement(dbResolve: (db: IDBDatabase) => void) {
-		this.tabLifecycleService.clearLegacyStorage(localStorage, sessionStorage)
-
 		const defaultSettings: CanvasSettings = {}
 
-		this.indexedDbService.openDatabase().then((db) => {
-			MainController.instance.db = db
-			dbResolve(MainController.instance.db)
-
-			this.tabLifecycleService.bindPersistenceHandlers(window, document, (closeTab = true) => this.saveCurrentState(closeTab))
-			this.tabLifecycleService
-				.initializeCurrentTab(
-					window.location.href,
-					emtpySaveState,
-					defaultSettings,
-					(requestedId, data, settings) => this.tabApplicationService.initializeTab(requestedId, data, settings),
-					(session) => {
-						MainController.instance.tabID = session.tabId
-						MainController.instance.designName.updateValue(session.designName ?? "", true, true)
-						CanvasController.instance.setSettings(session.settings)
-						MainController.instance.pendingLoadData = session.pendingData
-					}
-				)
-				.then(() => {
-					MainController.instance.sendBroadcastMessage("update")
-				})
-		})
-
-		//settings modal
-		this.tabManagementController.onShow(() => {
-			this.saveCurrentState(false)
-			this.tabApplicationService.getTabManagementSummary(
-				MainController.instance.tabID,
-				(data) => memorySizeOf(data),
-				(data) => countComponents(data.components)
-			).then((summary) => {
-				this.tabManagementController.renderSummary(summary, {
-					openTab: (url) => window.open(url, "_blank"),
-					deleteTab: (tabId) => {
-						this.tabApplicationService.deleteTab(tabId).then(() => {
-							this.tabManagementController.requestRefresh()
-							MainController.instance.sendBroadcastMessage("update")
-						})
-					},
-					highlightTab: (tabId) => MainController.instance.sendBroadcastMessage("show", tabId),
-					openNewTab: (url) => window.open(url, "_blank"),
-				})
-			})
-		})
-
-		this.tabManagementController.onProbeRefresh(() => {
-			// set all open states in indexedDB to false, then send a probe message to all tabs
-			this.tabApplicationService.markOtherTabsClosedForProbe(MainController.instance.tabID).then(() => {
-				// after all tabs are closed (in the db, not the tab in the browser), send a probe message to all tabs
-				// this will cause all open tabs to set their state to open=true again
-				this.tabManagementController.requestRefresh()
-				setTimeout(() => {
-					MainController.instance.sendBroadcastMessage("probe")
-				}, 10)
-			})
-		})
-
-		const favicon = document.getElementById("favicon") as HTMLLinkElement
-		const faviconLink = favicon.href
-		const faviconAlternate = document.getElementById("faviconAlternate") as HTMLLinkElement
-		const alternateLink = faviconAlternate.href
-		faviconAlternate.href = " "
-		faviconAlternate.disabled = true
-
-		this.broadcastChannel.onmessage = (event) => {
-			const msg = event.data as BroadcastMessage
-
-			this.tabBroadcastService
-				.handleIncomingMessage(msg, this.tabID, (tabId) => this.tabApplicationService.markTabOpen(tabId))
-				.then((reaction) => {
-					if (reaction.flashCurrentTab) {
-						const oldTitle = document.title
-
-						let darkMode = true
-						const switchFavicon = () => {
-							if (darkMode) {
-								favicon.href = alternateLink
-								document.title = "Click here!"
-							} else {
-								favicon.href = faviconLink
-								document.title = oldTitle
-							}
-							darkMode = !darkMode
-						}
-						const interval = setInterval(switchFavicon, 1100)
-						switchFavicon()
-
-						// Stop flashing if tab becomes visible
-						document.addEventListener("visibilitychange", () => {
-							if (!document.hidden) {
-								clearInterval(interval)
-								darkMode = false
-								switchFavicon()
-							}
-						})
-					}
-
-					if (reaction.refreshTabManagement) {
-						this.tabManagementController.refreshIfOpen()
-					}
-
-					if (reaction.clipboardPayload) {
-						CopyPaste.setClipboard(reaction.clipboardPayload)
-					}
-
-					if (reaction.outgoingMessage) {
-						this.postBroadcastMessage(reaction.outgoingMessage)
-					}
-				})
-			return false
-		}
-
-		function countComponents(data: ComponentSaveObject[]) {
-			let count = 0
-			for (const component of data) {
-				if (component.type == "group") {
-					count += countComponents((component as GroupSaveObject).components)
+		initializeMainControllerTabBootstrap({
+			clearLegacyStorage: (localStorageObject, sessionStorageObject) =>
+				this.tabLifecycleService.clearLegacyStorage(localStorageObject, sessionStorageObject),
+			openDatabase: () => this.indexedDbService.openDatabase(),
+			bindPersistenceHandlers: (windowObject, documentObject, saveCurrentState) =>
+				this.tabLifecycleService.bindPersistenceHandlers(windowObject, documentObject, saveCurrentState),
+			initializeCurrentTab: (url, defaultData, settings, initializeTab, applySession) =>
+				this.tabLifecycleService.initializeCurrentTab(url, defaultData, settings, initializeTab, applySession),
+			getTabManagementSummary: (currentTabId, measureSize, countComponents) =>
+				this.tabApplicationService.getTabManagementSummary(currentTabId, measureSize, countComponents),
+			deleteTab: (tabId) => this.tabApplicationService.deleteTab(tabId),
+			markOtherTabsClosedForProbe: (currentTabId) => this.tabApplicationService.markOtherTabsClosedForProbe(currentTabId),
+			handleIncomingMessage: (message, currentTabId, markTabOpen) =>
+				this.tabBroadcastService.handleIncomingMessage(message, currentTabId, markTabOpen),
+			markTabOpen: (tabId) => this.tabApplicationService.markTabOpen(tabId),
+			renderTabManagementSummary: (summary, actions) => this.tabManagementController.renderSummary(summary, actions),
+			bindTabManagementShow: (loadSummary) => this.tabManagementController.onShow(loadSummary),
+			bindProbeRefresh: (refresh) => this.tabManagementController.onProbeRefresh(refresh),
+			requestTabManagementRefresh: () => this.tabManagementController.requestRefresh(),
+			refreshTabManagementIfOpen: () => this.tabManagementController.refreshIfOpen(),
+			postBroadcastMessage: (message) => this.postBroadcastMessage(message),
+			createBroadcastMessage: (type, from, payload) => this.tabBroadcastService.createMessage(type as BroadcastMessageType, from, payload),
+			setClipboard: (payload) => CopyPaste.setClipboard(payload),
+			setBroadcastMessageHandler: (handler) => {
+				this.broadcastChannel.onmessage = (event) => {
+					void handler(event.data as BroadcastMessage)
+					return false
 				}
-				count++
-			}
-			return count
-		}
+			},
+			initializeTab: (requestedId, data, settings) => this.tabApplicationService.initializeTab(requestedId, data, settings),
+			applySession: (session) => {
+				MainController.instance.tabID = session.tabId
+				MainController.instance.designName.updateValue(session.designName ?? "", true, true)
+				CanvasController.instance.setSettings(session.settings)
+				MainController.instance.pendingLoadData = session.pendingData
+			},
+			onDatabaseOpened: (db) => {
+				MainController.instance.db = db
+				dbResolve(MainController.instance.db)
+			},
+			onInitialized: () => {
+				MainController.instance.sendBroadcastMessage("update")
+			},
+			saveCurrentState: (closeTab = true) => this.saveCurrentState(closeTab),
+			openUrl: (url) => window.open(url, "_blank"),
+			currentTabId: () => MainController.instance.tabID,
+			defaultData: emtpySaveState,
+			defaultSettings,
+			measureSize: (data) => memorySizeOf(data),
+		})
 	}
 
 	public sendBroadcastMessage(type: BroadcastMessageType, payload?: any) {
@@ -658,162 +509,45 @@ export class MainController {
 	 * initialises keyboard shortcuts
 	 */
 	private initShortcuts() {
-		// stop reload behaviour
-		hotkeys("ctrl+r,command+r", () => false)
-
-		// rotate selection
-		hotkeys("ctrl+r,command+r", () => {
-			if (this.mode == Modes.COMPONENT) {
-				ComponentPlacer.instance.placeRotate(-90)
-			} else {
-				if (SelectionController.instance.hasSelection()) {
-					SelectionController.instance.rotateSelection(-90)
-					Undo.addState()
+		initializeMainControllerShortcutBootstrap({
+			registerHotkey: (shortcut, handler) => {
+				hotkeys(shortcut, handler)
+			},
+			switchToDragPanMode: () => this.switchMode(Modes.DRAG_PAN),
+			switchToEraseMode: () => this.switchMode(Modes.ERASE),
+			isComponentPlacementMode: () => this.mode === Modes.COMPONENT,
+			hasSelection: () => SelectionController.instance.hasSelection(),
+			rotatePlacement: (angleDeg) => ComponentPlacer.instance.placeRotate(angleDeg),
+			rotateSelection: (angleDeg) => SelectionController.instance.rotateSelection(angleDeg),
+			flipPlacement: (horizontal) => ComponentPlacer.instance.placeFlip(horizontal),
+			flipSelection: (horizontal) => SelectionController.instance.flipSelection(horizontal),
+			addUndoState: () => Undo.addState(),
+			selectAll: () => SelectionController.instance.selectAll(),
+			undo: () => Undo.undo(),
+			redo: () => Undo.redo(),
+			copy: () => CopyPaste.copy(),
+			paste: () => CopyPaste.paste(),
+			cut: () => CopyPaste.cut(),
+			exportSvg: () => ExportController.instance.exportSVG(),
+			clickAddComponentButton: () => {
+				document.getElementById("addComponentButton")?.dispatchEvent(new MouseEvent("click"))
+			},
+			fitActiveView: () => {
+				if (LiveRenderController.instance.activeTab === "render") {
+					LiveRenderController.instance.fitView()
+				} else {
+					CanvasController.instance.fitView()
 				}
-			}
-			return false
-		})
-		hotkeys("ctrl+shift+r,command+shift+r", () => {
-			if (this.mode == Modes.COMPONENT) {
-				ComponentPlacer.instance.placeRotate(90)
-			} else {
-				if (SelectionController.instance.hasSelection()) {
-					SelectionController.instance.rotateSelection(90)
-					Undo.addState()
-				}
-			}
-			return false
-		})
-
-		//flip selection
-		hotkeys("shift+x", () => {
-			if (this.mode == Modes.COMPONENT) {
-				ComponentPlacer.instance.placeFlip(true)
-			} else {
-				if (SelectionController.instance.hasSelection()) {
-					SelectionController.instance.flipSelection(true)
-					Undo.addState()
-				}
-			}
-			return false
-		})
-		hotkeys("shift+y", () => {
-			if (this.mode == Modes.COMPONENT) {
-				ComponentPlacer.instance.placeFlip(false)
-			} else {
-				if (SelectionController.instance.hasSelection()) {
-					SelectionController.instance.flipSelection(false)
-					Undo.addState()
-				}
-			}
-			return false
-		})
-
-		// select everything
-		hotkeys("ctrl+a,command+a", () => {
-			SelectionController.instance.selectAll()
-			return false
-		})
-
-		//undo/redo
-		hotkeys("ctrl+z,command+z", () => {
-			Undo.undo()
-			return false
-		})
-		hotkeys("ctrl+y,command+y", () => {
-			Undo.redo()
-			return false
-		})
-		document.getElementById("undoButton").addEventListener("click", () => Undo.undo())
-		document.getElementById("redoButton").addEventListener("click", () => Undo.redo())
-
-		//copy/paste
-		hotkeys("ctrl+c,command+c", () => {
-			CopyPaste.copy()
-			return false
-		})
-		hotkeys("ctrl+v,command+v", () => {
-			CopyPaste.paste()
-			return false
-		})
-		hotkeys("ctrl+x,command+x", () => {
-			CopyPaste.cut()
-			return false
-		})
-
-		//save/load
-		hotkeys("ctrl+shift+e,command+shift+e", () => {
-			ExportController.instance.exportSVG()
-			return false
-		})
-
-		// mode change
-		hotkeys("q", () => {
-			document.getElementById("addComponentButton").dispatchEvent(new MouseEvent("click"))
-			return false
-		})
-		hotkeys("esc", () => {
-			this.switchMode(Modes.DRAG_PAN)
-			return false
-		})
-		hotkeys("f", () => {
-			if (LiveRenderController.instance.activeTab === "render") {
-				LiveRenderController.instance.fitView()
-			} else {
-				CanvasController.instance.fitView()
-			}
-			return false
-		})
-		hotkeys("w", () => {
-			this.switchMode(Modes.DRAG_PAN)
-			ComponentPlacer.instance.placeComponent(new WireComponent())
-			return false
-		})
-		hotkeys("del, backspace", () => {
-			if (!SelectionController.instance.hasSelection()) {
-				this.switchMode(Modes.ERASE)
-			} else {
-				SelectionController.instance.removeSelection()
-				Undo.addState()
-			}
-			return false
-		})
-		hotkeys("t", () => {
-			this.switchMode(Modes.DRAG_PAN)
-			ComponentPlacer.instance.placeComponent(new RectangleComponent(true))
-			return false
-		})
-
-		// handle shortcuts for adding components
-		// shortcutDict maps the Shortcut key to the title attribute of the html element where the callback can be found
-		var shortcutDict: { shortcut: string; component: string }[] = [
-			{ shortcut: "g", component: "Ground" },
-			{ shortcut: "alt+g,option+g", component: "Ground (tailless)" },
-			{ shortcut: "r", component: "Resistor (american)" },
-			{ shortcut: "alt+r,option+r", component: "Resistor (european)" },
-			{ shortcut: "c", component: "Capacitor" },
-			{ shortcut: "alt+c,option+c", component: "Curved (polarized) capacitor" },
-			{ shortcut: "l", component: "Inductor (american)" },
-			{ shortcut: "alt+l,option+l", component: "Inductor (cute)" },
-			{ shortcut: "d", component: "Empty diode" },
-			{ shortcut: "b", component: "NPN" },
-			{ shortcut: "alt+b,option+b", component: "PNP" },
-			{ shortcut: "n", component: "NMOS" },
-			{ shortcut: "alt+n,option+n", component: "PMOS" },
-			{ shortcut: "x", component: "Plain style crossing node" },
-			{ shortcut: "alt+x,option+x", component: "Jumper-style crossing node" },
-			{ shortcut: ".", component: "Connected terminal" },
-			{ shortcut: "alt+.,option+.", component: "Unconnected terminal" },
-		]
-		// when a valid shortcut button is pressed, simulate a click on the corresponding button for the component
-		for (const { shortcut, component } of shortcutDict) {
-			hotkeys(shortcut, () => {
-				this.switchMode(Modes.DRAG_PAN) //switch to standard mode to avoid weird states
-				var componentButton = document.querySelector('[title="' + component + '"]')
-				var clickEvent = new MouseEvent("mouseup", { view: window, bubbles: true, cancelable: true })
+			},
+			placeWireComponent: () => ComponentPlacer.instance.placeComponent(new WireComponent()),
+			removeSelection: () => SelectionController.instance.removeSelection(),
+			placeTextComponent: () => ComponentPlacer.instance.placeComponent(new RectangleComponent(true)),
+			activateShortcutComponent: (componentTitle) => {
+				const componentButton = document.querySelector(`[title="${componentTitle}"]`)
+				const clickEvent = new MouseEvent("mouseup", { view: window, bubbles: true, cancelable: true })
 				componentButton?.dispatchEvent(clickEvent)
-			})
-		}
+			},
+		})
 	}
 
 	/**
@@ -837,24 +571,13 @@ export class MainController {
 	 * Init the mode change buttons.
 	 */
 	private initModeButtons() {
-		this.modeSwitchButtons.modeDragPan = document.getElementById("modeDragPan")
-		this.modeSwitchButtons.modeDrawLine = document.getElementById("modeDrawLine")
-		this.modeSwitchButtons.modeEraser = document.getElementById("modeEraser")
-
-		this.modeSwitchButtons.modeDragPan.addEventListener("click", () => this.switchMode(Modes.DRAG_PAN), {
-			passive: false,
-		})
-		this.modeSwitchButtons.modeDrawLine.addEventListener(
-			"click",
-			() => {
+		this.modeSwitchButtons = initializeMainControllerModeBootstrap({
+			switchToDragPanMode: () => this.switchMode(Modes.DRAG_PAN),
+			switchToEraseMode: () => this.switchMode(Modes.ERASE),
+			placeWireMode: () => {
 				this.switchMode(Modes.DRAG_PAN)
-				this.modeSwitchButtons.modeDrawLine.classList.add("selected")
 				ComponentPlacer.instance.placeComponent(new WireComponent())
 			},
-			{ passive: false }
-		)
-		this.modeSwitchButtons.modeEraser.addEventListener("click", () => this.switchMode(Modes.ERASE), {
-			passive: false,
 		})
 	}
 
