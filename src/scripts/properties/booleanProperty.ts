@@ -1,4 +1,5 @@
-import { EditableProperty, Undo } from "../internal"
+import { EditableProperty } from "./editableProperty"
+import { getPropertyRuntime } from "./propertyRuntime"
 
 export class BooleanProperty extends EditableProperty<boolean> {
 	private checkBox: HTMLInputElement
@@ -71,12 +72,12 @@ export class BooleanProperty extends EditableProperty<boolean> {
 						}
 
 						this.updateValue(this.checkBox.indeterminate ? null : this.checkBox.checked)
-						Undo.addState()
+						getPropertyRuntime().addUndoState()
 					})
 				} else {
 					this.checkBox.addEventListener("change", (ev) => {
 						this.updateValue(this.checkBox.checked)
-						Undo.addState()
+						getPropertyRuntime().addUndoState()
 					})
 				}
 

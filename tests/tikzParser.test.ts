@@ -1,45 +1,8 @@
-import { describe, it, expect, vi } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 
 // Mock the internal modules
 vi.mock("../src/scripts/internal", () => {
-	class MockPoint {
-		x: number; y: number
-		constructor(x = 0, y = 0) { this.x = x; this.y = y }
-		clone() { return new MockPoint(this.x, this.y) }
-		rotate(_angle: number) { return this }
-		sub(other: MockPoint) { return new MockPoint(this.x - other.x, this.y - other.y) }
-		add(other: MockPoint) { return new MockPoint(this.x + other.x, this.y + other.y) }
-		simplifyForJson() { return { x: this.x, y: this.y } }
-	}
-
-	const makeMockSymbol = (tikzName: string) => ({
-		tikzName,
-		getVariant: () => ({
-			defaultAnchor: { point: new MockPoint(0, 0) },
-			pins: []
-		})
-	});
-
-	const mockSymbols = [
-		makeMockSymbol("ground"),
-		makeMockSymbol("op amp"),
-		makeMockSymbol("pmos"),
-		makeMockSymbol("nmos"),
-		makeMockSymbol("vcc"),
-		makeMockSymbol("american resistor"),
-		makeMockSymbol("capacitor"),
-		makeMockSymbol("american inductor"),
-		makeMockSymbol("empty diode"),
-		makeMockSymbol("sinusoidal voltage source"),
-	];
-
 	return {
-		MainController: {
-			instance: {
-				symbols: mockSymbols,
-				addSymbolToCategory: vi.fn(),
-			}
-		},
 		CircuitComponent: class {},
 		poleChoices: [],
 		arrowTips: []
@@ -75,11 +38,39 @@ vi.mock("@svgdotjs/svg.js", () => {
 	}
 })
 
-import { parseTikz } from "../src/scripts/utils/tikzParser"
+import { configureTikzParserRuntime, parseTikz } from "../src/scripts/utils/tikzParser"
 
 const scale = 127 / 4800;
+const addParsedSubcircuit = vi.fn()
+const makeMockSymbol = (tikzName: string) => ({
+	tikzName,
+	getVariant: () => ({
+		defaultAnchor: { point: { x: 0, y: 0, clone() { return this }, rotate() { return this }, sub() { return this }, add() { return this } } },
+		pins: []
+	})
+})
+const mockSymbols = [
+	makeMockSymbol("ground"),
+	makeMockSymbol("op amp"),
+	makeMockSymbol("pmos"),
+	makeMockSymbol("nmos"),
+	makeMockSymbol("vcc"),
+	makeMockSymbol("american resistor"),
+	makeMockSymbol("capacitor"),
+	makeMockSymbol("american inductor"),
+	makeMockSymbol("empty diode"),
+	makeMockSymbol("sinusoidal voltage source"),
+]
 
 describe("parseTikz parser lint relaxation", () => {
+	beforeEach(() => {
+		addParsedSubcircuit.mockReset()
+		configureTikzParserRuntime({
+			getSymbols: () => mockSymbols as any,
+			addParsedSubcircuit,
+		})
+	})
+
 	it("should parse single point node placement without throwing error", () => {
 		const code = `\\draw (0,0) node[ground] {};`;
 		expect(() => parseTikz(code)).not.toThrow();
@@ -151,5 +142,20 @@ describe("parseTikz parser lint relaxation", () => {
 		expect(result[0].size.x).toBeCloseTo(expectedPx, 1);
 		expect(result[0].size.y).toBeCloseTo(expectedPx, 1);
 	});
-});
 
+	it("registers parsed subcircuits through the configured runtime callback", () => {
+		const code = `\\tikzset{demo/.pic={\\draw (0,0) -- (1,0);}}`
+
+		parseTikz(code)
+
+		expect(addParsedSubcircuit).toHaveBeenCalledWith(
+			"我的最愛",
+			"subcircuit-demo",
+			expect.objectContaining({
+				id: "subcircuit-demo",
+				tikzName: "demo",
+				displayName: "demo",
+			})
+		)
+	})
+});

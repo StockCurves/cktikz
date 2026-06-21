@@ -127,7 +127,14 @@ vi.mock("../src/scripts/internal", () => {
 	class PropertiesCollection { add = vi.fn() }
 	const PropertyCategories = { ordering: "ordering", manipulation: "manipulation" }
 	class SectionHeaderProperty { constructor(public label: string) {} }
-	class ButtonGridProperty { constructor(..._a: any[]) {} }
+	class ButtonGridProperty {
+		labels: any
+		callbacks: any[]
+		constructor(_columns: number, labels: any, callbacks: any[]) {
+			this.labels = labels
+			this.callbacks = callbacks
+		}
+	}
 
 	return {
 		// Base class stub — GroupComponent will extend this
@@ -259,6 +266,23 @@ describe("GroupComponent", () => {
 			const g = new GroupComponent([comp])
 			;(g as any)._bbox = undefined
 			expect(() => (g as any).recalculateSelectionVisuals()).not.toThrow()
+		})
+	})
+
+	describe("subcircuit action", () => {
+		it("invokes the configured subcircuit handler from the grouping property button", () => {
+			const comp = makeFakeComponent(new FakeBox(10, 10, 50, 50))
+			const handler = vi.fn()
+			GroupComponent.setCreateSubcircuitHandler(handler)
+
+			const g = new GroupComponent([comp])
+			const orderingProperties = (g as any).properties.get("ordering") ?? []
+			const groupingProperty = orderingProperties.find((property: any) => property?.labels?.[1]?.[0] === "Save to Symbols")
+			const saveToSymbols = groupingProperty?.callbacks?.[1]
+
+			saveToSymbols()
+
+			expect(handler).toHaveBeenCalledTimes(1)
 		})
 	})
 })

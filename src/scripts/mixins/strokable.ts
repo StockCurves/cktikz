@@ -1,16 +1,16 @@
 import * as SVG from "@svgdotjs/svg.js"
 import {
-	AbstractConstructor,
-	ChoiceEntry,
-	ChoiceProperty,
 	CircuitComponent,
-	ColorProperty,
 	ComponentSaveObject,
-	dashArrayToPattern,
-	PropertyCategories,
-	SectionHeaderProperty,
-	SliderProperty,
-} from "../internal"
+} from "../components/circuitComponent"
+import type { ChoiceEntry } from "../properties/choiceProperty"
+import { ChoiceProperty } from "../properties/choiceProperty"
+import { ColorProperty } from "../properties/colorProperty"
+import { PropertyCategories } from "../properties/propertiesCollection"
+import { SectionHeaderProperty } from "../properties/sectionHeaderProperty"
+import { SliderProperty } from "../properties/sliderProperty"
+import { dashArrayToPattern } from "../utils/strokePattern"
+import type { AbstractConstructor } from "../utils/utils"
 
 export type StrokeInfo = {
 	width?: SVG.Number

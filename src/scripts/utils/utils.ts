@@ -1,12 +1,7 @@
 import * as SVG from "@svgdotjs/svg.js"
-import { basicDirections, DirectionInfo } from "../internal"
-
+import { basicDirections, type DirectionInfo } from "./directions"
+export { defaultFill, defaultStroke } from "./themeDefaults"
 export type AbstractConstructor<T = {}> = abstract new (...args: any[]) => T
-
-// utility values
-
-export const defaultStroke = "var(--bs-emphasis-color)"
-export const defaultFill = "var(--bs-body-bg)"
 
 // Utility functions for components
 

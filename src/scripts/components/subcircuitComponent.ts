@@ -1,7 +1,5 @@
 import * as SVG from "@svgdotjs/svg.js"
-import { MainController } from "../controllers/mainController"
-import { CircuitComponent } from "./circuitComponent"
-import { GroupComponent, type GroupSaveObject } from "./groupComponent"
+import { CircuitComponent, GroupComponent, type GroupSaveObject, MainController } from "../internal"
 
 export type SubcircuitSaveObject = {
 	type: string

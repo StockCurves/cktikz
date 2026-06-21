@@ -1,4 +1,5 @@
-import { CanvasController, EditableProperty, Undo } from "../internal"
+import { EditableProperty } from "./editableProperty"
+import { getPropertyRuntime } from "./propertyRuntime"
 
 export class TextProperty extends EditableProperty<string> {
 	private input: HTMLInputElement
@@ -44,7 +45,7 @@ export class TextProperty extends EditableProperty<string> {
 		row.appendChild(inputDiv)
 
 		this.input.addEventListener("mousedown", (ev) => {
-			CanvasController.instance.draggingFromInput = this.input
+			getPropertyRuntime().markDraggingInput(this.input)
 		})
 
 		let previousState = ""
@@ -64,7 +65,7 @@ export class TextProperty extends EditableProperty<string> {
 			this.updateHTML()
 			this.changeInvalidStatus("")
 			if (this.value && previousState !== this.value) {
-				Undo.addState()
+				getPropertyRuntime().addUndoState()
 			}
 		})
 		return row

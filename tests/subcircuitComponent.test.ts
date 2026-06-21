@@ -139,6 +139,10 @@ const { components, canvas, FakePoint, FakeBox, makeEl, StubGroupComponent } = v
 // Mocks
 // ---------------------------------------------------------------------------
 vi.mock("@svgdotjs/svg.js", () => ({
+	extend: vi.fn(),
+	Number: class {},
+	Color: class {},
+	Symbol: class {},
 	Point: FakePoint,
 	Box: FakeBox,
 	G: class { node = { classList: { add: vi.fn() }, style: {} }; add = vi.fn() },

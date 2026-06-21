@@ -1,13 +1,12 @@
 import {
-	AbstractConstructor,
+	type ComponentSaveObject,
 	CircuitComponent,
-	PropertyCategories,
-	SectionHeaderProperty,
-	ComponentSaveObject,
-	TextProperty,
-	MainController,
-	ExportController,
-} from "../internal"
+} from "../components/circuitComponent"
+import { getNamingRuntime } from "./namingRuntime"
+import { PropertyCategories } from "../properties/propertiesCollection"
+import { SectionHeaderProperty } from "../properties/sectionHeaderProperty"
+import { TextProperty } from "../properties/textProperty"
+import type { AbstractConstructor } from "../utils/utils"
 
 /**
  * names cannot contain punctuation, parentheses and some other symbols
@@ -33,14 +32,8 @@ export function Nameable<TBase extends AbstractConstructor<CircuitComponent>>(Ba
 					// check if characters are valid
 					return "Contains forbidden characters!"
 				}
-				for (const component of MainController.instance.circuitComponents) {
-					// check if another component with the same name already exists
-					if (component != this && "name" in component) {
-						let otherName = component.name as TextProperty
-						if (text !== "" && otherName.value == text) {
-							return "Name is already taken!"
-						}
-					}
+				if (getNamingRuntime().isNameTaken(text, this)) {
+					return "Name is already taken!"
 				}
 				return ""
 			}
@@ -72,7 +65,7 @@ export function Nameable<TBase extends AbstractConstructor<CircuitComponent>>(Ba
 		protected buildTikzName(ensureID = true): string {
 			let id = this.name.value
 			if (!id && ensureID) {
-				id = ExportController.instance.createExportID("N")
+				id = getNamingRuntime().createExportId("N")
 			}
 			return id
 		}

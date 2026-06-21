@@ -1,13 +1,13 @@
 import * as SVG from "@svgdotjs/svg.js"
 import {
-	AbstractConstructor,
 	CircuitComponent,
-	ColorProperty,
 	ComponentSaveObject,
-	PropertyCategories,
-	SectionHeaderProperty,
-	SliderProperty,
-} from "../internal"
+} from "../components/circuitComponent"
+import { ColorProperty } from "../properties/colorProperty"
+import { PropertyCategories } from "../properties/propertiesCollection"
+import { SectionHeaderProperty } from "../properties/sectionHeaderProperty"
+import { SliderProperty } from "../properties/sliderProperty"
+import type { AbstractConstructor } from "../utils/utils"
 
 export type FillInfo = {
 	color?: string | "default"

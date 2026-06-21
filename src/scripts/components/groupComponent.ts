@@ -9,8 +9,13 @@ export type GroupSaveObject = ComponentSaveObject & {
 
 export class GroupComponent extends CircuitComponent {
 	private static jsonID = "group"
+	private static createSubcircuitHandler: () => void = () => {}
 	static {
 		CircuitComponent.jsonSaveMap.set(GroupComponent.jsonID, GroupComponent)
+	}
+
+	public static setCreateSubcircuitHandler(handler: () => void) {
+		GroupComponent.createSubcircuitHandler = handler
 	}
 
 	public groupedComponents: CircuitComponent[] = []
@@ -39,7 +44,7 @@ export class GroupComponent extends CircuitComponent {
 		let grouping = new ButtonGridProperty(
 			2,
 			[["Ungroup", ""], ["Save to Symbols", ""]],
-			[(ev) => this.ungroup(), (ev) => MainController.instance.createSubcircuitFromSelection()],
+			[(ev) => this.ungroup(), () => GroupComponent.createSubcircuitHandler()],
 			undefined,
 			undefined,
 			"ordering:ungroup"

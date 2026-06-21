@@ -1,24 +1,3 @@
-// controllers
-export * from "./controllers/mainController"
-export * from "./controllers/canvasController"
-export * from "./controllers/eraseController"
-export * from "./controllers/exportController"
-export * from "./controllers/saveController"
-export * from "./controllers/selectionController"
-export * from "./controllers/undoController"
-export * from "./controllers/copyController"
-export * from "./controllers/propertiesController"
-export * from "./properties/propertiesCollection"
-export * from "./services/propertiesApplicationService"
-export * from "./services/propertiesSelectionService"
-export * from "./services/propertiesTypes"
-export * from "./controllers/environmentVariableController"
-export * from "./controllers/tikzEditorController"
-export * from "./controllers/liveRenderController"
-export * from "./controllers/contextMenu"
-export * from "./controllers/templateController"
-export * from "./services/templateApplicationService"
-export * from "./services/templateTypes"
 // properties
 export * from "./properties/editableProperty"
 export * from "./properties/booleanProperty"
@@ -32,13 +11,23 @@ export * from "./properties/sliderProperty"
 export * from "./properties/sectionHeaderProperty"
 export * from "./properties/colorProperty"
 export * from "./properties/radioButtonProperty"
-//mixins
+export * from "./properties/propertiesCollection"
+
+// services
+export * from "./services/propertiesApplicationService"
+export * from "./services/propertiesSelectionService"
+export * from "./services/propertiesTypes"
+export * from "./services/templateApplicationService"
+export * from "./services/templateTypes"
+
+// mixins
 export * from "./mixins/fillable"
 export * from "./mixins/strokable"
 export * from "./mixins/nameable"
 export * from "./mixins/labelable"
 export * from "./mixins/voltageable"
 export * from "./mixins/currentable"
+
 // components
 export * from "./components/circuitComponent"
 export * from "./components/pathComponent"
@@ -56,14 +45,32 @@ export * from "./components/groupComponent"
 export * from "./components/shortComponent"
 export * from "./components/openComponent"
 export * from "./components/subcircuitComponent"
+
 // snapDrag
 export * from "./snapDrag/dragHandlers"
 export * from "./snapDrag/snapController"
 export * from "./snapDrag/snapCursor"
 export * from "./snapDrag/snapPoint"
+
 // other
 export * from "./utils/textHelper"
 export * from "./utils/utils"
 export * from "./utils/tikzBuilder"
 export * from "./utils/tikzParser"
+
+// controllers
+export * from "./controllers/mainController"
+export * from "./controllers/canvasController"
+export * from "./controllers/eraseController"
+export * from "./controllers/exportController"
+export * from "./controllers/saveController"
+export * from "./controllers/selectionController"
+export * from "./controllers/undoController"
+export * from "./controllers/copyController"
+export * from "./controllers/propertiesController"
+export * from "./controllers/environmentVariableController"
+export * from "./controllers/tikzEditorController"
+export * from "./controllers/liveRenderController"
+export * from "./controllers/contextMenu"
+export * from "./controllers/templateController"
 export * from "./controllers/symbolEditorController"

@@ -1,13 +1,10 @@
 import * as SVG from "@svgdotjs/svg.js"
 import {
 	AdjustDragHandler,
-	buildTikzStringFromPathCommand,
-	CircuitComponent,
-	ComponentSaveObject,
-	MainController,
-	SnapCursorController,
-	TikzPathCommand,
-} from "../internal"
+} from "../snapDrag/dragHandlers"
+import { buildTikzStringFromPathCommand, type TikzPathCommand } from "../utils/tikzBuilder"
+import { type ComponentSaveObject, CircuitComponent } from "./circuitComponent"
+import { getComponentRuntime } from "./componentRuntime"
 import { resizeSVG } from "../utils/selectionHelper"
 
 export type PathSaveObject = ComponentSaveObject & {
@@ -47,7 +44,7 @@ export abstract class PathComponent extends CircuitComponent {
 		super()
 		this.referencePoints = []
 		this.resizableSVGs = []
-		SnapCursorController.instance.visible = true
+		getComponentRuntime().setSnapCursorVisible(true)
 	}
 
 	public moveRel(delta: SVG.Point): void {
@@ -179,7 +176,7 @@ export abstract class PathComponent extends CircuitComponent {
 		}
 		if (this.referencePoints.length < 2) {
 			// if not even 2 corner points -> no polygon, delete
-			MainController.instance.removeComponent(this)
+			getComponentRuntime().removeComponent(this)
 			return
 		}
 		this.finishedPlacing = true

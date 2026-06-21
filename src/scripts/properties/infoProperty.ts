@@ -1,4 +1,4 @@
-import { EditableProperty } from "../internal"
+import { EditableProperty } from "./editableProperty"
 
 export class InfoProperty extends EditableProperty<string> {
 	private valueElement: HTMLSpanElement

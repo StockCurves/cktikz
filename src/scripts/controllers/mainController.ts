@@ -22,6 +22,13 @@ import type { CustomSymbolRecord } from "../services/customSymbolService"
 import { ModalDialogService } from "../services/modalDialogService"
 import { getAppRuntime } from "../services/appRuntime"
 import type { BroadcastMessage, BroadcastMessageType } from "../services/tabBroadcastService"
+import { preprocessSymbolColors } from "../utils/symbolColorTheme"
+import { configureTikzParserRuntime } from "../utils/tikzParser"
+import { configurePropertyRuntime } from "../properties/propertyRuntime"
+import { configureNamingRuntime } from "../mixins/namingRuntime"
+import { configureComponentRuntime } from "../components/componentRuntime"
+import { SnapDragHandler } from "../snapDrag/dragHandlers"
+import { SnapCursorController } from "../snapDrag/snapCursor"
 import {
 	CanvasController,
 	ExportController,
@@ -39,8 +46,6 @@ import {
 	ComponentSaveObject,
 	EraseController,
 	RectangleComponent,
-	defaultStroke,
-	defaultFill,
 	GroupComponent,
 	GroupSaveObject,
 	memorySizeOf,
@@ -131,30 +136,33 @@ export class MainController {
 	private readonly customSymbolSaveController = new CustomSymbolSaveController()
 	private readonly customSymbolSelectionController = new CustomSymbolSelectionController()
 	private readonly modalDialogService = new ModalDialogService()
+	private readonly hideLeftOffcanvas = () => {
+		const leftOffcanvas = document.getElementById("leftOffcanvas") as HTMLDivElement
+		new Offcanvas(leftOffcanvas).hide()
+	}
+	private readonly cancelActiveComponentPlacement = () => {
+		if (ComponentPlacer.instance.component) {
+			ComponentPlacer.instance.placeCancel()
+		}
+	}
+	private readonly placeSelectedComponent = (component: CircuitComponent) => {
+		ComponentPlacer.instance.placeComponent(component)
+	}
 	private readonly customSymbolWorkspaceController = new CustomSymbolWorkspaceController({
-		hideDrawer: () => {
-			const leftOffcanvas = document.getElementById("leftOffcanvas") as HTMLDivElement
-			new Offcanvas(leftOffcanvas).hide()
-		},
+		hideDrawer: this.hideLeftOffcanvas,
 		openRenameModal: (title: string, currentName: string) => this.openRenameModal(title, currentName),
-		openConfirm: (title: string, body: string) => this.openConfirm(title, body),
-		renameCategory: (oldName: string, newName: string) => { void this.renameCustomCategory(oldName, newName) },
-		deleteCategory: (name: string) => { void this.deleteCustomCategory(name) },
-		removeSymbolFromCategory: (categoryName: string, symbolId: string) => { void this.removeSymbolFromCategory(categoryName, symbolId) },
+		openConfirm: this.modalDialogService.openConfirm.bind(this.modalDialogService),
+		renameCategory: (oldName: string, newName: string) => { void this.customSymbolCatalogController.renameCustomCategory(oldName, newName) },
+		deleteCategory: (name: string) => { void this.customSymbolCatalogController.deleteCustomCategory(name) },
+		removeSymbolFromCategory: (categoryName: string, symbolId: string) => { void this.customSymbolCatalogController.removeSymbolFromCategory(categoryName, symbolId) },
 		openSymbolEditor: (symbolId: string) => SymbolEditorController.instance.open(symbolId),
-		renameGraphicsSymbol: (oldName: string, newName: string) => { void this.renameCustomGraphicsSymbol(oldName, newName) },
-		deleteGraphicsSymbol: (symbolId: string) => { void this.deleteCustomGraphicsSymbol(symbolId) },
-		renameSubcircuit: (symbolId: string, newName: string) => { void this.renameCustomSymbol(symbolId, newName) },
-		deleteSubcircuit: (symbolId: string) => { void this.deleteCustomSymbol(symbolId) },
+		renameGraphicsSymbol: (oldName: string, newName: string) => { void this.customSymbolGraphicsController.renameCustomGraphicsSymbol(oldName, newName) },
+		deleteGraphicsSymbol: (symbolId: string) => { void this.customSymbolGraphicsController.deleteCustomGraphicsSymbol(symbolId) },
+		renameSubcircuit: (symbolId: string, newName: string) => { void this.customSymbolCatalogController.renameCustomSymbol(symbolId, newName) },
+		deleteSubcircuit: (symbolId: string) => { void this.customSymbolCatalogController.deleteCustomSymbol(symbolId) },
 		switchToComponentMode: () => this.switchMode(Modes.COMPONENT),
-		cancelComponentPlacement: () => {
-			if (ComponentPlacer.instance.component) {
-				ComponentPlacer.instance.placeCancel()
-			}
-		},
-		placeComponent: (component: CircuitComponent) => {
-			ComponentPlacer.instance.placeComponent(component)
-		},
+		cancelComponentPlacement: this.cancelActiveComponentPlacement,
+		placeComponent: this.placeSelectedComponent,
 		generateSubcircuitPreview: (subcircuitData: any) => this.generateSubcircuitSvgPreview(subcircuitData),
 		persistCustomSymbol: (customSymbol) => this.customSymbolApplicationService.putCustomSymbol(customSymbol),
 	})
@@ -170,7 +178,7 @@ export class MainController {
 		runtimeSymbols: this.symbols,
 		circuitComponents: this.circuitComponents,
 		getSymbolDbElement: () => document.getElementById("symbolDB"),
-		showAlert: (title: string, body: string) => this.openAlert(title, body),
+		showAlert: this.modalDialogService.openAlert.bind(this.modalDialogService),
 	})
 	private readonly customSymbolSubcircuitSaveController = new CustomSymbolSubcircuitSaveController({
 		selectionController: this.customSymbolSelectionController,
@@ -179,7 +187,7 @@ export class MainController {
 		applicationService: this.customSymbolApplicationService,
 		circuitComponents: this.circuitComponents,
 		runtimeSymbols: this.symbols,
-		showAlert: (title: string, body: string) => this.openAlert(title, body),
+		showAlert: this.modalDialogService.openAlert.bind(this.modalDialogService),
 		addUndoState: () => Undo.addState(),
 	})
 	private readonly customSymbolExportService = new CustomSymbolExportService()
@@ -196,35 +204,28 @@ export class MainController {
 		componentLibraryController: new ComponentLibraryController(),
 		shapeLibraryController: new ShapeLibraryController(),
 		symbolLibraryMenuController: new SymbolLibraryMenuController(),
-		hideDrawer: () => {
-			const leftOffcanvas = document.getElementById("leftOffcanvas") as HTMLDivElement
-			new Offcanvas(leftOffcanvas).hide()
-		},
+		hideDrawer: this.hideLeftOffcanvas,
 		switchToPanMode: () => this.switchMode(Modes.DRAG_PAN),
 		switchToComponentMode: () => this.switchMode(Modes.COMPONENT),
-		cancelComponentPlacement: () => {
-			if (ComponentPlacer.instance.component) {
-				ComponentPlacer.instance.placeCancel()
-			}
-		},
-		placeComponent: (component: CircuitComponent) => {
-			ComponentPlacer.instance.placeComponent(component)
-		},
-		openPrompt: (title: string, message: string, defaultValue?: string) => this.openPrompt(title, message, defaultValue),
+		cancelComponentPlacement: this.cancelActiveComponentPlacement,
+		placeComponent: this.placeSelectedComponent,
+		openPrompt: this.modalDialogService.openPrompt.bind(this.modalDialogService),
 		openRenameModal: (title: string, currentName: string) => this.openRenameModal(title, currentName),
-		openConfirm: (title: string, body: string) => this.openConfirm(title, body),
-		addCustomCategory: (name: string) => this.addCustomCategory(name),
-		loadCustomCategories: () => this.loadAndRenderCustomCategories(),
+		openConfirm: this.modalDialogService.openConfirm.bind(this.modalDialogService),
+		addCustomCategory: (name: string) => this.customSymbolCatalogController.addCustomCategory(name),
+		loadCustomCategories: () => this.customSymbolCatalogController.loadAndRenderCustomCategories(),
 		getCustomCategoryNames: () => this.customCategories.map((category) => category.name),
 		getSymbolByName: (symbolName: string) => this.symbols.find((symbol) => symbol.tikzName === symbolName),
 		openSymbolEditor: (symbolName: string) => {
 			SymbolEditorController.instance.open("custom-" + symbolName)
 		},
-		renameCustomGraphicsSymbol: (oldName: string, newName: string) => this.renameCustomGraphicsSymbol(oldName, newName),
-		deleteCustomGraphicsSymbol: (symbolId: string) => this.deleteCustomGraphicsSymbol(symbolId),
-		addSymbolToCategory: (categoryName: string, symbolName: string) => this.addSymbolToCategory(categoryName, symbolName),
+		renameCustomGraphicsSymbol: (oldName: string, newName: string) =>
+			this.customSymbolGraphicsController.renameCustomGraphicsSymbol(oldName, newName),
+		deleteCustomGraphicsSymbol: (symbolId: string) => this.customSymbolGraphicsController.deleteCustomGraphicsSymbol(symbolId),
+		addSymbolToCategory: (categoryName: string, symbolName: string) =>
+			this.customSymbolCatalogController.addSymbolToCategory(categoryName, symbolName),
 		duplicateSymbol: (symbol: ComponentSymbol, newName: string, categoryName: string) =>
-			this.duplicateSymbol(symbol, newName, categoryName),
+			this.customSymbolGraphicsController.duplicateSymbol(symbol, newName, categoryName),
 	})
 
 	/**
@@ -234,6 +235,45 @@ export class MainController {
 		MainController._instance = this
 		this.isMac = window.navigator.userAgent.toUpperCase().indexOf("MAC") >= 0
 		this.broadcastChannel = new BroadcastChannel("circuitikz-designer")
+		configurePropertyRuntime({
+			enterDragPanMode: () => this.switchMode(Modes.DRAG_PAN),
+			markDraggingInput: (element) => {
+				if (CanvasController.instance) {
+					CanvasController.instance.draggingFromInput = element
+				}
+			},
+			addUndoState: () => Undo.addState(),
+		})
+		configureNamingRuntime({
+			isNameTaken: (text, self) =>
+				this.circuitComponents.some((component) => {
+					if (component === self || !("name" in component)) {
+						return false
+					}
+					const otherName = (component as CircuitComponent & { name?: TextProperty }).name
+					return text !== "" && otherName?.value === text
+			}),
+			createExportId: (prefix) => ExportController.instance.createExportID(prefix),
+		})
+		configureComponentRuntime({
+			registerComponent: (component) => this.addComponent(component as CircuitComponent),
+			removeComponent: (component) => this.removeComponent(component as CircuitComponent),
+			createSelectionElement: () => CanvasController.instance.canvas.rect(0, 0),
+			createVisualizationGroup: () => CanvasController.instance.canvas.group(),
+			putSelectionElement: (element) => CanvasController.instance.canvas.put(element),
+			setSnapCursorVisible: (visible) => { SnapCursorController.instance.visible = visible },
+			snapDrag: (component, enable, dragElement) =>
+				SnapDragHandler.snapDrag(component as CircuitComponent, enable, dragElement),
+			bringToForeground: (components) => CanvasController.instance.componentsToForeground(components as CircuitComponent[]),
+			sendToBackground: (components) => CanvasController.instance.componentsToBackground(components as CircuitComponent[]),
+			moveForward: (components) => CanvasController.instance.moveComponentsForward(components as CircuitComponent[]),
+			moveBackward: (components) => CanvasController.instance.moveComponentsBackward(components as CircuitComponent[]),
+			addUndoState: () => Undo.addState(),
+			getSelectionReference: () => SelectionController.instance.referenceComponent,
+			setSelectionReference: (component) => {
+				SelectionController.instance.referenceComponent = component as CircuitComponent | null
+			},
+		})
 
 		// dark mode init
 		const htmlElement = document.documentElement
@@ -274,6 +314,27 @@ export class MainController {
 				if (!updated) return
 				MainController.instance.sendBroadcastMessage("update")
 			})
+		})
+
+		SymbolEditorController.instance.configure({
+			openPrompt: this.modalDialogService.openPrompt.bind(this.modalDialogService),
+			openAlert: this.modalDialogService.openAlert.bind(this.modalDialogService),
+			findCustomSymbol: (symbolId) => this.customSymbols.find((symbol) => symbol.id === symbolId),
+			findRuntimeSymbol: (tikzName) => this.symbols.find((symbol) => symbol.tikzName === tikzName),
+			getCircuitComponents: () => this.circuitComponents,
+			persistCustomSymbol: (customSymbol) => this.customSymbolCatalogController.putCustomSymbolRecord(customSymbol),
+			refreshCustomCategories: () => this.customSymbolCatalogController.loadAndRenderCustomCategories(),
+			preprocessSymbolColors,
+		})
+
+		configureTikzParserRuntime({
+			getSymbols: () => this.symbols,
+			addParsedSubcircuit: (categoryName, symbolId, customSymbolData) =>
+				this.customSymbolCatalogController.addSymbolToCategory(categoryName, symbolId, customSymbolData),
+		})
+
+		GroupComponent.setCreateSubcircuitHandler(() => {
+			void this.customSymbolSubcircuitSaveController.createSubcircuitFromSelection()
 		})
 
 		this.initModeButtons()
@@ -349,7 +410,7 @@ export class MainController {
 
 			// prepare symbolDB for colorTheme
 			for (const g of this.symbolsSVG.defs().node.querySelectorAll("symbol>g")) {
-				this.preprocessSymbolColors(g)
+				preprocessSymbolColors(g)
 			}
 
 			const htmlElement = document.documentElement
@@ -869,65 +930,6 @@ export class MainController {
 	}
 
 	/**
-	 * add missing fill attributes to all symbol db entries where fill is undefined --> needs explicit setting, otherwise the color theme change does strange things.
-	 * called once on initialization
-	 * @param {Element} node
-	 */
-	private preprocessSymbolColors(node: Element) {
-		//exchange all explicit blacks with defaultStroke and all explicit whites with defaultFill
-		node.querySelectorAll("[fill]").forEach((elem) => {
-			if (elem.getAttribute("fill") == "#000") {
-				elem.setAttribute("fill", defaultStroke)
-			} else if (elem.getAttribute("fill") == "#fff") {
-				elem.setAttribute("fill", defaultFill)
-			}
-		})
-		node.querySelectorAll("[stroke]").forEach((elem) => {
-			if (elem.getAttribute("stroke") == "#000") {
-				elem.setAttribute("stroke", defaultStroke)
-			} else if (elem.getAttribute("stroke") == "#fff") {
-				elem.setAttribute("stroke", defaultFill)
-			}
-		})
-
-		node.querySelectorAll(".fillable").forEach((elem) => {
-			if (elem.getAttribute("fill") == "none") {
-				elem.setAttribute("fill", "currentFill")
-			}
-		})
-
-		if (node.getAttribute("fill") == "#000") {
-			node.setAttribute("fill", defaultStroke)
-		} else if (node.getAttribute("fill") == "#fff") {
-			node.setAttribute("fill", defaultFill)
-		}
-
-		if (node.getAttribute("stroke") == "#000") {
-			node.setAttribute("stroke", defaultStroke)
-		} else if (node.getAttribute("stroke") == "#fff") {
-			node.setAttribute("stroke", defaultFill)
-		}
-
-		this.addFill(node)
-	}
-
-	private addFill(node: Element) {
-		let hasFill = node.getAttribute("fill") !== null
-		if (hasFill) {
-			return
-		}
-		for (const element of node.children) {
-			if (element.nodeName === "g") {
-				this.addFill(element)
-			} else {
-				if (!element.getAttribute("fill")) {
-					element.setAttribute("fill", "currentColor")
-				}
-			}
-		}
-	}
-
-	/**
 	 * Adds a new instance to {@link circuitComponents} and adds its snapping points.
 	 */
 	public addComponent(circuitComponent: CircuitComponent) {
@@ -967,10 +969,6 @@ export class MainController {
 
 	public get customSymbols() {
 		return this.customSymbolWorkspaceController.customSymbols
-	}
-
-	public async loadAndRenderCustomCategories() {
-		await this.customSymbolCatalogController.loadAndRenderCustomCategories()
 	}
 
 	public async addCustomCategory(name: string) {
@@ -1041,10 +1039,6 @@ export class MainController {
 
 	public async removeSymbolFromCategory(categoryName: string, symbolId: string) {
 		await this.customSymbolCatalogController.removeSymbolFromCategory(categoryName, symbolId)
-	}
-
-	public async putCustomSymbolRecord(customSymbol: CustomSymbolRecord): Promise<void> {
-		await this.customSymbolCatalogController.putCustomSymbolRecord(customSymbol)
 	}
 
 	public async createSubcircuitFromSelection() {

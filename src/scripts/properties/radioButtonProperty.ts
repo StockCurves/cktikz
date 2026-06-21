@@ -1,4 +1,6 @@
-import { ChoiceEntry, EditableProperty, Undo } from "../internal"
+import type { ChoiceEntry } from "./choiceProperty"
+import { EditableProperty } from "./editableProperty"
+import { getPropertyRuntime } from "./propertyRuntime"
 
 export type RadioButtonOption = ChoiceEntry & { isMaterialSymbol: boolean }
 
@@ -52,7 +54,7 @@ export class RadioButtonProperty<T extends RadioButtonOption> extends EditablePr
 				input.id = id
 				input.addEventListener("change", (ev) => {
 					this.updateValue(option as T)
-					Undo.addState()
+					getPropertyRuntime().addUndoState()
 				})
 				col.appendChild(input)
 				this.buttons.push(input)

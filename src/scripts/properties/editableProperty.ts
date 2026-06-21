@@ -1,4 +1,4 @@
-import { MainController, Modes } from "../internal"
+import { getPropertyRuntime } from "./propertyRuntime"
 
 type ChangeEvent<T> = {
 	previousValue: T
@@ -42,7 +42,7 @@ export abstract class EditableProperty<T> {
 		// make sure to be in drag_pan mode when changing any value
 		this.changeListeners = [
 			(ev) => {
-				MainController.instance.switchMode(Modes.DRAG_PAN)
+				getPropertyRuntime().enterDragPanMode()
 			},
 		]
 		if (initialValue !== undefined) {

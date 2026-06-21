@@ -1,10 +1,22 @@
 import * as SVG from "@svgdotjs/svg.js"
 import "@svgdotjs/svg.draggable.js"
 import { Modal } from "bootstrap"
-import { MainController } from "./mainController"
 import { ComponentSymbol, TikZAnchor } from "../components/componentSymbol"
 import { defaultStroke, defaultFill } from "../utils/utils"
 import { buildSymbolVariantDiff } from "../utils/symbolVariantDiff"
+import type { CircuitComponent } from "../components/circuitComponent"
+import type { CustomSymbolRecord } from "../services/customSymbolService"
+
+export type SymbolEditorRuntime = {
+	openPrompt: (title: string, message: string, defaultValue?: string) => Promise<string | null>
+	openAlert: (title: string, message: string) => Promise<void>
+	findCustomSymbol: (symbolId: string) => CustomSymbolRecord | undefined
+	findRuntimeSymbol: (tikzName: string) => ComponentSymbol | undefined
+	getCircuitComponents: () => CircuitComponent[]
+	persistCustomSymbol: (customSymbol: CustomSymbolRecord) => Promise<void>
+	refreshCustomCategories: () => Promise<void>
+	preprocessSymbolColors: (node: Element) => void
+}
 
 export class SymbolEditorController {
 	private static _instance: SymbolEditorController
@@ -41,9 +53,21 @@ export class SymbolEditorController {
 
 	private isPanning = false
 	private lastMousePos: SVG.Point | null = null
+	private runtime: SymbolEditorRuntime | null = null
 
 	private constructor() {
 		// Initialization deferred until DOM is ready or open is called
+	}
+
+	public configure(runtime: SymbolEditorRuntime) {
+		this.runtime = runtime
+	}
+
+	private getRuntime(): SymbolEditorRuntime {
+		if (!this.runtime) {
+			throw new Error("SymbolEditorController runtime has not been configured.")
+		}
+		return this.runtime
 	}
 
 	private initDOM() {
@@ -245,7 +269,7 @@ export class SymbolEditorController {
 						.stroke({ color: defaultStroke, width: 1 })
 				} else if (this.currentTool === "pin") {
 					this.isDrawing = false
-					const pinName = await MainController.instance.openPrompt(
+					const pinName = await this.getRuntime().openPrompt(
 						"New Connection Point",
 						"Please enter a name for the new connection point (e.g., g, s, d, in, out):"
 					)
@@ -421,8 +445,9 @@ export class SymbolEditorController {
 	public async open(symbolId: string) {
 		try {
 			this.initDOM()
+			const runtime = this.getRuntime()
 
-			const customSymbol = MainController.instance.customSymbols.find(s => s.id === symbolId)
+			const customSymbol = runtime.findCustomSymbol(symbolId)
 			if (!customSymbol) {
 				console.error("Custom symbol not found in DB list:", symbolId)
 				return
@@ -440,7 +465,7 @@ export class SymbolEditorController {
 			this.deselect()
 
 			// Locate standard/custom ComponentSymbol
-			const compSymbol = MainController.instance.symbols.find(s => s.tikzName === this.tikzName)
+			const compSymbol = runtime.findRuntimeSymbol(this.tikzName)
 			if (!compSymbol) {
 				console.error("ComponentSymbol not initialized in symbols pool for edit:", this.tikzName)
 				return
@@ -557,7 +582,9 @@ export class SymbolEditorController {
 			this.modal.show()
 		} catch (err) {
 			console.error("Error opening symbol editor modal:", err)
-			await MainController.instance.openAlert("Error Opening Editor", err.stack || String(err))
+			if (this.runtime) {
+				await this.runtime.openAlert("Error Opening Editor", (err as any)?.stack || String(err))
+			}
 		}
 	}
 
@@ -809,6 +836,8 @@ export class SymbolEditorController {
 	}
 
 	private async save() {
+		const runtime = this.getRuntime()
+
 		// Assemble child nodes representing shape elements
 		const elementsXmlArr: string[] = []
 		this.elementsGroup.each((index, members) => {
@@ -978,7 +1007,7 @@ export class SymbolEditorController {
 		this.customSymbol.componentXml = compNode.outerHTML
 		this.customSymbol.symbols = newSymbolsMap
 
-		MainController.instance.putCustomSymbolRecord(this.customSymbol).then(() => {
+		runtime.persistCustomSymbol(this.customSymbol).then(() => {
 			console.log("Custom symbol successfully saved in IndexedDB:", this.tikzName)
 			
 			// Hot-reload DOM `#symbolDB` content
@@ -998,7 +1027,7 @@ export class SymbolEditorController {
 			}
 
 			// Update runtime memory `ComponentSymbol` instance mapping
-			const compSymbol = MainController.instance.symbols.find(s => s.tikzName === this.tikzName)
+			const compSymbol = runtime.findRuntimeSymbol(this.tikzName)
 			if (compSymbol) {
 				const variantNodes = compNode.getElementsByTagName("variant")
 				for (let i = 0; i < variantNodes.length; i++) {
@@ -1020,7 +1049,7 @@ export class SymbolEditorController {
 							// Re-preprocess symbol colors on the newly appended DOM element
 							const g = symElement.querySelector("g")
 							if (g) {
-								(MainController.instance as any).preprocessSymbolColors(g)
+								runtime.preprocessSymbolColors(g)
 							}
 						}
 
@@ -1044,7 +1073,7 @@ export class SymbolEditorController {
 			}
 
 			// Hot-reload all placed instances of this custom symbol on canvas
-			for (const comp of MainController.instance.circuitComponents) {
+			for (const comp of runtime.getCircuitComponents()) {
 				if ((comp as any).referenceSymbol === compSymbol || (comp as any).referenceSymbol?.tikzName === this.tikzName) {
 					// Trigger update options to fetch newly updated SVG layout and snaps
 					if (typeof (comp as any).updateOptions === "function") {
@@ -1059,7 +1088,7 @@ export class SymbolEditorController {
 			this.modal.hide()
 			
 			// Refresh Symbols offcanvas view list
-			MainController.instance.loadAndRenderCustomCategories()
+			void runtime.refreshCustomCategories()
 		})
 	}
 }

@@ -1,4 +1,5 @@
-import { CanvasController, EditableProperty, Undo } from "../internal"
+import { EditableProperty } from "./editableProperty"
+import { getPropertyRuntime } from "./propertyRuntime"
 
 export class MathJaxProperty extends EditableProperty<string> {
 	private input: HTMLInputElement
@@ -42,11 +43,11 @@ export class MathJaxProperty extends EditableProperty<string> {
 
 			this.input.addEventListener("focusout", (ev) => {
 				if (this.value && previousState !== this.value) {
-					Undo.addState()
+					getPropertyRuntime().addUndoState()
 				}
 			})
 			this.input.addEventListener("mousedown", (ev) => {
-				CanvasController.instance.draggingFromInput = this.input
+				getPropertyRuntime().markDraggingInput(this.input)
 			})
 		}
 		row.appendChild(col)

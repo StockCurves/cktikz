@@ -28,6 +28,65 @@ const mockFetch = (response: Partial<Response>) => {
 	return fetchMock
 }
 
+function makeFakeDb(workFiles = new Map<string, any>()) {
+	return {
+		transaction(storeName: string) {
+			if (storeName !== "workFiles") throw new Error(`Unexpected store: ${storeName}`)
+			const tx: any = {
+				oncomplete: null,
+				onerror: null,
+				onabort: null,
+				error: null,
+				objectStore() {
+					return {
+						get(key: string) {
+							const request: any = { result: workFiles.get(key), onsuccess: null, onerror: null, error: null }
+							setTimeout(() => {
+								request.onsuccess?.({ target: { result: workFiles.get(key) } })
+								tx.oncomplete?.()
+							}, 0)
+							return request
+						},
+						getAll() {
+							const request: any = { result: [...workFiles.values()], onsuccess: null, onerror: null, error: null }
+							setTimeout(() => {
+								request.onsuccess?.({ target: { result: [...workFiles.values()] } })
+								tx.oncomplete?.()
+							}, 0)
+							return request
+						},
+						put(value: any) {
+							workFiles.set(value.name, value)
+							const request: any = { result: value, onsuccess: null, onerror: null, error: null }
+							setTimeout(() => {
+								request.onsuccess?.({ target: { result: value } })
+								tx.oncomplete?.()
+							}, 0)
+							return request
+						},
+						delete(key: string) {
+							workFiles.delete(key)
+							const request: any = { result: undefined, onsuccess: null, onerror: null, error: null }
+							setTimeout(() => {
+								request.onsuccess?.({ target: { result: undefined } })
+								tx.oncomplete?.()
+							}, 0)
+							return request
+						},
+					}
+				},
+			}
+			return tx
+		},
+		objectStoreNames: {
+			contains: vi.fn().mockReturnValue(true),
+		},
+		createObjectStore: vi.fn(),
+		close: vi.fn(),
+		onversionchange: null,
+	} as unknown as IDBDatabase
+}
+
 describe("getApiBase", () => {
 	it("uses the local dev server for localhost", () => {
 		expect(getApiBase("localhost")).toBe("http://localhost:3001")
@@ -161,6 +220,51 @@ describe("createRuntimeConfig", () => {
 			bindPersistenceHandlers: expect.any(Function),
 			initializeCurrentTab: expect.any(Function),
 		})
+	})
+
+	it("uses the demo runtime providers without touching server filesystem APIs", async () => {
+		const fetchMock = mockFetch({
+			ok: true,
+			text: vi.fn().mockResolvedValue("\\draw (0,0) -- (1,0);"),
+		})
+		const fakeDb = makeFakeDb()
+		;(window as any).__CIRCUITIKZ_DESIGNER_RUNTIME__ = {
+			storageMode: "indexeddb",
+			templateSource: "static-manifest",
+			latexMode: "serverless-proxy",
+		}
+		vi.stubGlobal("indexedDB", {
+			open: vi.fn(() => {
+				const request: any = {
+					result: fakeDb,
+					onsuccess: null,
+					onerror: null,
+					onblocked: null,
+					onupgradeneeded: null,
+				}
+				setTimeout(() => {
+					request.onsuccess?.({ target: request })
+				}, 0)
+				return request
+			}),
+		})
+		setAppRuntimeForTests(null)
+
+		const dataSource = getAppRuntime().createTemplateDataSource()
+		const files = await dataSource.listFiles()
+		await dataSource.readFile("template", files.templates[0])
+		await dataSource.saveWork("draft.tex", "content")
+		expect(await dataSource.readFile("work", "draft.tex")).toBe("content")
+		await dataSource.deleteWork("draft.tex")
+
+		const requestedUrls = fetchMock.mock.calls.map(([url]) => String(url))
+		expect(files.templates.length).toBeGreaterThan(0)
+		expect(requestedUrls.some((url) => url.includes("/api/files"))).toBe(false)
+		expect(requestedUrls.some((url) => url.includes("/api/file"))).toBe(false)
+		expect(requestedUrls.some((url) => url.includes("/api/save"))).toBe(false)
+		expect(requestedUrls.some((url) => url.includes("/api/delete"))).toBe(false)
+		expect(requestedUrls).toHaveLength(1)
+		expect(requestedUrls[0]).not.toContain("/api/")
 	})
 })
 

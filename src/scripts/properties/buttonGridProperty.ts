@@ -1,4 +1,4 @@
-import { EditableProperty } from "../internal"
+import { EditableProperty } from "./editableProperty"
 
 export class ButtonGridProperty extends EditableProperty<never> {
 	private buttonsPerRow: 1 | 2 | 3 | 4 | 6 | 12

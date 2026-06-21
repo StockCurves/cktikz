@@ -83,6 +83,7 @@ vi.mock("../src/scripts/internal", () => ({
 	SymbolEditorController: { instance: {} },
 	TemplateController: { instance: { initialize: vi.fn().mockResolvedValue(undefined) } },
 	LiveRenderController: { instance: { init: vi.fn() } },
+	EditableProperty: class {},
 }))
 vi.mock("../src/scripts/components/groupComponent", () => ({
 	GroupComponent: class {

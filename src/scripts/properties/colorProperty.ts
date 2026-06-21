@@ -1,6 +1,6 @@
 import * as SVG from "@svgdotjs/svg.js"
 import { EditableProperty } from "./editableProperty"
-import { Undo } from "../internal"
+import { getPropertyRuntime } from "./propertyRuntime"
 
 export class ColorProperty extends EditableProperty<SVG.Color | null> {
 	private label: string
@@ -47,7 +47,7 @@ export class ColorProperty extends EditableProperty<SVG.Color | null> {
 
 				this.enabler.addEventListener("change", (ev) => {
 					this.updateValue(this.enabler.checked ? new SVG.Color(this.input.value, "rgb") : null)
-					Undo.addState()
+					getPropertyRuntime().addUndoState()
 				})
 				enablerDiv.appendChild(this.enabler)
 				col.appendChild(enablerDiv)
@@ -66,7 +66,7 @@ export class ColorProperty extends EditableProperty<SVG.Color | null> {
 				}
 			})
 			this.input.addEventListener("change", (ev) => {
-				Undo.addState()
+				getPropertyRuntime().addUndoState()
 			})
 
 			col.appendChild(this.input)

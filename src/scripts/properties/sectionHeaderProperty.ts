@@ -1,4 +1,4 @@
-import { EditableProperty } from "../internal"
+import { EditableProperty } from "./editableProperty"
 
 export class SectionHeaderProperty extends EditableProperty<string> {
 	private labelElement: HTMLElement

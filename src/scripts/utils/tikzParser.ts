@@ -1,12 +1,32 @@
 import * as SVG from "@svgdotjs/svg.js"
 import {
-	MainController,
 	CircuitComponent,
 	poleChoices,
 	arrowTips
 } from "../internal"
+import type { ComponentSymbol } from "../components/componentSymbol"
 
 const scale = 127 / 4800;
+
+export type TikzParserRuntime = {
+	getSymbols: () => ComponentSymbol[]
+	addParsedSubcircuit: (categoryName: string, symbolId: string, customSymbolData: any) => void | Promise<void>
+}
+
+const defaultTikzParserRuntime: TikzParserRuntime = {
+	getSymbols: () => [],
+	addParsedSubcircuit: () => {},
+}
+
+let tikzParserRuntime: TikzParserRuntime = defaultTikzParserRuntime
+
+export function configureTikzParserRuntime(runtime: Partial<TikzParserRuntime> | null) {
+	tikzParserRuntime = runtime ? { ...defaultTikzParserRuntime, ...runtime } : defaultTikzParserRuntime
+}
+
+function getRuntimeSymbols(): ComponentSymbol[] {
+	return tikzParserRuntime.getSymbols()
+}
 
 export function cleanTikzText(text: string): string {
 	let clean = text.trim();
@@ -210,9 +230,7 @@ function parsePicDefinitions(content: string) {
 				isNodeSymbol: false,
 				subcircuitData: subComponent
 			};
-			if (MainController.instance) {
-				MainController.instance.addSymbolToCategory("我的最愛", symbolId, customSymbolData);
-			}
+			void tikzParserRuntime.addParsedSubcircuit("我的最愛", symbolId, customSymbolData)
 		}
 	}
 }
@@ -503,7 +521,7 @@ export function parseTikz(tikzCode: string): any[] {
 			let symbolId = "";
 			let matchedSymbol = null;
 			for (const opt of standalone) {
-				const found = MainController.instance.symbols.find((s) => s.tikzName === opt);
+				const found = getRuntimeSymbols().find((s) => s.tikzName === opt);
 				if (found) {
 					matchedSymbol = found;
 					symbolId = opt;
@@ -844,7 +862,7 @@ export function parseTikz(tikzCode: string): any[] {
 								symbolId = "open";
 								break;
 							}
-							const found = MainController.instance.symbols.find((s) => s.tikzName === opt);
+							const found = getRuntimeSymbols().find((s) => s.tikzName === opt);
 							if (found) {
 								symbolId = opt;
 								break;

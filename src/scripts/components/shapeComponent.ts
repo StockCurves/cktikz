@@ -1,39 +1,23 @@
 import * as SVG from "@svgdotjs/svg.js"
 import {
-	DirectionInfo,
-	CanvasController,
-	basicDirections,
-	defaultBasicDirection,
-	SnappingInfo,
-	SnapDragHandler,
-	AdjustDragHandler,
-	defaultStroke,
-	SelectionController,
-	NodeComponent,
-	NodeSaveObject,
-	FillInfo,
-	Fillable,
-	StrokeInfo,
-	Strokable,
 	closestBasicDirection,
-} from "../internal"
+} from "../utils/utils"
+import { defaultStroke } from "../utils/themeDefaults"
+import { CanvasController } from "../controllers/canvasController"
+import { SelectionController } from "../controllers/selectionController"
+import { AdjustDragHandler, SnapDragHandler } from "../snapDrag/dragHandlers"
+import type { SnappingInfo } from "../snapDrag/snapController"
+import { Fillable, type FillInfo } from "../mixins/fillable"
+import { Strokable, type StrokeInfo } from "../mixins/strokable"
+import { NodeComponent, type NodeSaveObject } from "./nodeComponent"
+import { basicDirections, defaultBasicDirection, type DirectionInfo } from "../utils/directions"
+export { dashArrayToPattern } from "../utils/strokePattern"
 import { resizeSVG, selectedBoxWidth } from "../utils/selectionHelper"
 
 export type ShapeSaveObject = NodeSaveObject & {
 	fill?: FillInfo
 	stroke?: StrokeInfo
 	size: SVG.Point
-}
-
-export const dashArrayToPattern = (linewidth: SVG.Number, dasharray: number[]): string => {
-	let pattern = []
-	for (let index = 0; index < dasharray.length - 1; index += 2) {
-		const onElement = dasharray[index]
-		const offElement = dasharray[index + 1]
-		pattern.push("on " + linewidth.times(onElement).toString())
-		pattern.push("off " + linewidth.times(offElement).toString())
-	}
-	return "dash pattern={" + pattern.join(" ") + "}"
 }
 
 export abstract class ShapeComponent extends Strokable(Fillable(NodeComponent)) {

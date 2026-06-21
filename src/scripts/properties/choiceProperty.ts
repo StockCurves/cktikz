@@ -1,4 +1,5 @@
-import { EditableProperty, Undo } from "../internal"
+import { EditableProperty } from "./editableProperty"
+import { getPropertyRuntime } from "./propertyRuntime"
 
 export type ChoiceEntry = {
 	key: string
@@ -51,7 +52,7 @@ export class ChoiceProperty<T extends ChoiceEntry> extends EditableProperty<T> {
 
 			this.selectElement.addEventListener("change", (ev) => {
 				this.updateValue(this.choiceOptions.find((el) => el.key == this.selectElement.value))
-				Undo.addState()
+				getPropertyRuntime().addUndoState()
 			})
 			col.appendChild(this.selectElement)
 		}

@@ -1,20 +1,12 @@
 import * as SVG from "@svgdotjs/svg.js"
 import "@svgdotjs/svg.draggable.js"
-import {
-	MainController,
-	SnapPoint,
-	SnappingInfo,
-	ButtonGridProperty,
-	CanvasController,
-	SelectionController,
-	SectionHeaderProperty,
-	Undo,
-	EditableProperty,
-	SnapDragHandler,
-	SnapCursorController,
-	PropertiesCollection,
-	PropertyCategories,
-} from "../internal"
+import { ButtonGridProperty } from "../properties/buttonGridProperty"
+import type { EditableProperty } from "../properties/editableProperty"
+import { PropertiesCollection, PropertyCategories } from "../properties/propertiesCollection"
+import { SectionHeaderProperty } from "../properties/sectionHeaderProperty"
+import { SnapPoint } from "../snapDrag/snapPoint"
+import type { SnappingInfo } from "../snapDrag/snapController"
+import { getComponentRuntime } from "./componentRuntime"
 import type { GroupComponent } from "./groupComponent"
 import { hoverColor, rectRectIntersection, referenceColor, selectedBoxWidth, selectionColor } from "../utils/selectionHelper"
 
@@ -67,7 +59,7 @@ export abstract class CircuitComponent {
 	public set isSelected(value: boolean) {
 		if (!value) {
 			if (this.isSelectionReference) {
-				SelectionController.instance.referenceComponent = null
+				getComponentRuntime().setSelectionReference(null)
 			}
 			this.isSelectionReference = false
 		}
@@ -135,12 +127,12 @@ export abstract class CircuitComponent {
 		this.finishedPlacing = false
 		this.referencePosition = new SVG.Point()
 		//every time a component is initialized, it should be added to the component list for housekeeping
-		MainController.instance.addComponent(this)
-		this.selectionElement = CanvasController.instance.canvas.rect(0, 0).hide()
+		getComponentRuntime().registerComponent(this)
+		this.selectionElement = getComponentRuntime().createSelectionElement()?.hide()
 		this.selectionElement.node.classList.add("selectionElement")
 		this.selectionElement.node.style.pointerEvents = "none"
 
-		this.visualization = CanvasController.instance.canvas.group()
+		this.visualization = getComponentRuntime().createVisualizationGroup()
 
 		this.dragElement = this.visualization
 
@@ -164,10 +156,10 @@ export abstract class CircuitComponent {
 				["Backward", ""],
 			],
 			[
-				(ev) => CanvasController.instance.componentsToForeground([this]),
-				(ev) => CanvasController.instance.componentsToBackground([this]),
-				(ev) => CanvasController.instance.moveComponentsForward([this]),
-				(ev) => CanvasController.instance.moveComponentsBackward([this]),
+				(ev) => getComponentRuntime().bringToForeground([this]),
+				(ev) => getComponentRuntime().sendToBackground([this]),
+				(ev) => getComponentRuntime().moveForward([this]),
+				(ev) => getComponentRuntime().moveBackward([this]),
 			],
 			false,
 			[
@@ -198,27 +190,27 @@ export abstract class CircuitComponent {
 			[
 				(ev) => {
 					this.rotate(-90)
-					Undo.addState()
+					getComponentRuntime().addUndoState()
 				},
 				(ev) => {
 					this.rotate(90)
-					Undo.addState()
+					getComponentRuntime().addUndoState()
 				},
 				(ev) => {
 					this.rotate(-45)
-					Undo.addState()
+					getComponentRuntime().addUndoState()
 				},
 				(ev) => {
 					this.rotate(45)
-					Undo.addState()
+					getComponentRuntime().addUndoState()
 				},
 				(ev) => {
 					this.flip(true)
-					Undo.addState()
+					getComponentRuntime().addUndoState()
 				},
 				(ev) => {
 					this.flip(false)
-					Undo.addState()
+					getComponentRuntime().addUndoState()
 				},
 			],
 			false,
@@ -249,7 +241,7 @@ export abstract class CircuitComponent {
 		} else {
 			this.visualization.node.classList.remove("draggable")
 		}
-		SnapDragHandler.snapDrag(this, drag, this.dragElement)
+		getComponentRuntime().snapDrag(this, drag, this.dragElement)
 	}
 
 	protected abstract recalculateResizePoints(): void
@@ -304,7 +296,7 @@ export abstract class CircuitComponent {
 
 	private showSeletedOrHovered() {
 		if (this.viewAsSelected || this.isHovered) {
-			CanvasController.instance.canvas.put(this.selectionElement)
+			getComponentRuntime().putSelectionElement(this.selectionElement)
 			this.selectionElement.show()
 
 			const color =
@@ -327,13 +319,15 @@ export abstract class CircuitComponent {
 
 	protected isSelectionReference = false
 	public setAsSelectionReference(): void {
-		if (SelectionController.instance.referenceComponent) {
-			SelectionController.instance.referenceComponent.isSelectionReference = false
-			SelectionController.instance.referenceComponent.viewSelected(
-				SelectionController.instance.referenceComponent.isSelected
+		const referenceComponent = getComponentRuntime().getSelectionReference() as CircuitComponent | null
+		if (referenceComponent) {
+			referenceComponent.isSelectionReference = false
+			referenceComponent.viewSelected(
+				referenceComponent.isSelected
 			)
 		}
 		this.isSelectionReference = true
+		getComponentRuntime().setSelectionReference(this)
 		this.viewSelected(true)
 	}
 
@@ -398,7 +392,7 @@ export abstract class CircuitComponent {
 	 */
 	protected applyJson(saveObject: ComponentSaveObject & { lines?: [number, number] }): void {
 		// highest level doesn't do anything (essentially only the type but this is not used here)
-		SnapCursorController.instance.visible = false
+		getComponentRuntime().setSnapCursorVisible(false)
 		this.finishedPlacing = true
 		this.draggable(true)
 		if (saveObject.lines) {
@@ -462,7 +456,7 @@ export abstract class CircuitComponent {
 	 * remove the component from the canvas
 	 */
 	public remove(): void {
-		SnapDragHandler.snapDrag(this, false)
+		getComponentRuntime().snapDrag(this, false)
 		this.visualization.remove()
 		this.viewSelected(false)
 		this.selectionElement?.remove()
