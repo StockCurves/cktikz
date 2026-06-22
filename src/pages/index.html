@@ -114,6 +114,27 @@
 									</ul>
 								</div>
 							</li>
+							<li class="nav-item col-12 col-md-auto d-flex align-items-center gap-1">
+								<button
+									type="button"
+									class="btn btn-outline-primary btn-sm fw-semibold d-flex align-items-center gap-1"
+									id="navbarSaveWorkButton"
+									data-bs-toggle="tooltip"
+									data-bs-placement="bottom"
+									data-bs-title="Save to Work">
+									<span style="font-size: 1.05rem; line-height: 1;">📤</span>
+									<span>Save to Work</span>
+								</button>
+								<button
+									type="button"
+									class="btn btn-outline btn-sm fw-semibold d-flex align-items-center justify-content-center"
+									id="navbarSettingsButton"
+									data-bs-toggle="tooltip"
+									data-bs-placement="bottom"
+									data-bs-title="Canvas Grid Settings">
+									<span style="font-size: 1.15rem; line-height: 1;">⚙️</span>
+								</button>
+							</li>
 							<li class="nav-item col-12 col-md-auto">
 								<button
 									type="button"
@@ -300,7 +321,7 @@
 						</div>
 					</div>
 				</div>
-				<div class="col-12 col-md-4 col-lg-3 col-xxl-2 m-0 p-0 overflow-y-auto" id="propertiesContainer">
+				<div class="col-12 col-md-4 col-lg-3 col-xxl-2 m-0 p-0 overflow-y-auto d-none" id="propertiesContainer">
 					<div
 						class="w-100 h-100 bg-body-tertiary border border-secondary rounded d-flex flex-column"
 						id="properties">
@@ -379,7 +400,7 @@
 		</div>
 
 		<!-- Left offcanvas (symbol DB) -->
-		<div id="leftOffcanvas" class="offcanvas offcanvas-start" tabindex="-1">
+		<div id="leftOffcanvas" class="offcanvas offcanvas-end" tabindex="-1">
 			<div class="offcanvas-header flex-column gap-3">
 				<div class="d-flex justify-content-between align-items-center w-100">
 					<h5 class="offcanvas-title" id="offcanvasLabel">Symbols</h5>
@@ -532,7 +553,7 @@
 			<div class="modal-dialog">
 				<div class="modal-content">
 					<div class="modal-header">
-						<h1 class="modal-title fs-5" id="saveServerModalLabel">Save Circuit to Server</h1>
+						<h1 class="modal-title fs-5" id="saveServerModalLabel">Save Circuit to Work</h1>
 						<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
 					</div>
 					<div class="modal-body d-flex flex-column gap-3">

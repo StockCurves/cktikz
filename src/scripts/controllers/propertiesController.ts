@@ -8,6 +8,7 @@ import {
 	MainController,
 	SectionHeaderProperty,
 	SelectionController,
+	SelectionMode,
 	Undo,
 } from "../internal"
 import { PropertiesApplicationService } from "../services/propertiesApplicationService"
@@ -29,6 +30,7 @@ export class PropertyController {
 		return PropertyController._instance
 	}
 
+	private propertiesContainer: HTMLDivElement | null
 	private viewProperties: HTMLDivElement
 	private propertiesEntries: HTMLDivElement
 	private propertiesTitle: HTMLElement
@@ -38,6 +40,7 @@ export class PropertyController {
 	private readonly minorLabel: HTMLElement
 	private readonly gridInfo: HTMLElement
 	private transientProperties: EditableProperty<any>[] = []
+	private showGeneralSettings = false
 	private readonly applicationService = new PropertiesApplicationService(
 		{
 			getSelectedComponents: () => SelectionController.instance.currentlySelectedComponents,
@@ -79,6 +82,7 @@ export class PropertyController {
 	)
 
 	private constructor() {
+		this.propertiesContainer = document.getElementById("propertiesContainer") as HTMLDivElement
 		this.propertiesTitle = document.getElementById("propertiesTitle") as HTMLElement
 		this.viewProperties = document.getElementById("view-properties") as HTMLDivElement
 		this.viewProperties.firstElementChild!.prepend(MainController.instance.designName.getHTMLElement())
@@ -94,6 +98,16 @@ export class PropertyController {
 		})
 		;(document.getElementById("fitViewButton") as HTMLButtonElement).addEventListener("click", () => {
 			this.applicationService.runSelectionAction("fitView")
+		})
+
+		const settingsBtn = document.getElementById("navbarSettingsButton") as HTMLButtonElement | null
+		settingsBtn?.addEventListener("click", () => {
+			this.showGeneralSettings = !this.showGeneralSettings
+			if (this.showGeneralSettings) {
+				SelectionController.instance.selectComponents([], SelectionMode.RESET)
+			} else {
+				this.update()
+			}
 		})
 
 		this.minorSlider.addEventListener("input", () => {
@@ -119,6 +133,22 @@ export class PropertyController {
 
 	private renderPanelState(panelState: PropertiesPanelState) {
 		this.clearForm()
+
+		if (panelState.mode === "single") {
+			this.showGeneralSettings = false
+		}
+
+		const shouldShowPanel = panelState.mode === "single" || (panelState.mode === "empty" && this.showGeneralSettings)
+		if (this.propertiesContainer) {
+			const wasVisible = !this.propertiesContainer.classList.contains("d-none")
+			this.propertiesContainer.classList.toggle("d-none", !shouldShowPanel)
+
+			if (wasVisible !== shouldShowPanel) {
+				requestAnimationFrame(() => {
+					window.dispatchEvent(new Event("resize"))
+				})
+			}
+		}
 
 		this.propertiesTitle.innerText = panelState.title
 		this.viewProperties.classList.toggle("d-none", !panelState.showViewSettings)

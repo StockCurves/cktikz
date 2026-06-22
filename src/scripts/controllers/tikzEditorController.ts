@@ -8,7 +8,8 @@ import {
 	Undo,
 	TemplateController,
 	SelectionController,
-	LiveRenderController
+	LiveRenderController,
+	CanvasController
 } from "../internal"
 
 function getEditorText(editor: HTMLDivElement): string {
@@ -150,6 +151,11 @@ export class TikzEditorController {
 			})
 		}
 
+		const navbarSaveWork = document.getElementById("navbarSaveWorkButton") as HTMLButtonElement | null
+		navbarSaveWork?.addEventListener("click", () => {
+			TemplateController.instance.openSaveModal()
+		})
+
 		// Mouse drag resizing
 		this.editorResizer.addEventListener("mousedown", (e: MouseEvent) => {
 			e.preventDefault()
@@ -186,6 +192,11 @@ export class TikzEditorController {
 			this.editorContainer.classList.remove("d-flex")
 			this.editorResizer.classList.add("d-none")
 		}
+
+		requestAnimationFrame(() => {
+			CanvasController.instance?.fitView()
+			LiveRenderController.instance?.fitView()
+		})
 	}
 
 	public isVisible(): boolean {
@@ -301,6 +312,22 @@ export class TikzEditorController {
 		}
 		this.setCode(arr.join("\n"))
 		this.editorError.style.display = "none"
+	}
+
+	/**
+	 * Toggles the visibility of the Apply button.
+	 */
+	public setApplyButtonVisible(visible: boolean) {
+		if (this.applyButton) {
+			if (visible) {
+				this.applyButton.classList.remove("d-none")
+			} else {
+				this.applyButton.classList.add("d-none")
+			}
+		}
+		if (this.editorTextArea) {
+			this.editorTextArea.setAttribute("contenteditable", visible ? "true" : "false")
+		}
 	}
 
 	/**
