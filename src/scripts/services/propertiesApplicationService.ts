@@ -21,9 +21,7 @@ const MULTI_SELECTION_ACTIONS: PropertyActionSection[] = [
 		columns: 2,
 		items: [
 			{ id: "rotate90cw", label: "Rotate 90° CW", icon: "rotate_right", tooltip: "Rotate the components 90 degrees clockwise" },
-			{ id: "rotate90ccw", label: "Rotate 90° CCW", icon: "rotate_left", tooltip: "Rotate the components 90 degrees counter clockwise" },
 			{ id: "rotate45cw", label: "Rotate 45° CW", icon: "rotate_right", tooltip: "Rotate the components 45 degrees clockwise" },
-			{ id: "rotate45ccw", label: "Rotate 45° CCW", icon: "rotate_left", tooltip: "Rotate the components 45 degrees counter clockwise" },
 			{ id: "flipVertical", label: "Flip vertically", icon: ["flip", "rotateText"], tooltip: "Flip the components around its x-axis" },
 			{ id: "flipHorizontal", label: "Flip horizontally", icon: "flip", tooltip: "Flip the components around its y-axis" },
 		],

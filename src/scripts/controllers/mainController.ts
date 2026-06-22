@@ -609,17 +609,17 @@ export class MainController {
 
 		switch (oldMode) {
 			case Modes.DRAG_PAN:
-				this.modeSwitchButtons.modeDragPan.classList.remove("selected")
+				this.modeSwitchButtons.modeDragPan?.classList.remove("selected")
 				CanvasController.instance.deactivatePanning()
 				SelectionController.instance.deactivateSelection()
 				break
 			case Modes.ERASE:
-				this.modeSwitchButtons.modeEraser.classList.remove("selected")
+				this.modeSwitchButtons.modeEraser?.classList.remove("selected")
 				EraseController.instance.deactivate()
 				break
 			case Modes.COMPONENT:
-				this.modeSwitchButtons.modeDragPan.classList.remove("selected")
-				this.modeSwitchButtons.modeDrawLine.classList.remove("selected")
+				this.modeSwitchButtons.modeDragPan?.classList.remove("selected")
+				this.modeSwitchButtons.modeDrawLine?.classList.remove("selected")
 				ComponentPlacer.instance.placeCancel()
 				CanvasController.instance.deactivatePanning()
 				break
@@ -629,16 +629,16 @@ export class MainController {
 
 		switch (newMode) {
 			case Modes.DRAG_PAN:
-				this.modeSwitchButtons.modeDragPan.classList.add("selected")
+				this.modeSwitchButtons.modeDragPan?.classList.add("selected")
 				CanvasController.instance.activatePanning()
 				SelectionController.instance.activateSelection()
 				break
 			case Modes.ERASE:
-				this.modeSwitchButtons.modeEraser.classList.add("selected")
+				this.modeSwitchButtons.modeEraser?.classList.add("selected")
 				EraseController.instance.activate()
 				break
 			case Modes.COMPONENT:
-				this.modeSwitchButtons.modeDragPan.classList.add("selected")
+				this.modeSwitchButtons.modeDragPan?.classList.add("selected")
 				CanvasController.instance.activatePanning()
 				break
 			default:

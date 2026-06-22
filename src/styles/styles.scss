@@ -458,4 +458,14 @@ body {
 	to { transform: rotate(360deg); }
 }
 
+.btn-outline-success.selected {
+	background-color: var(--success) !important;
+	color: white !important;
+}
+
+.btn-outline-warning.selected {
+	background-color: var(--warning) !important;
+	color: white !important;
+}
+
 

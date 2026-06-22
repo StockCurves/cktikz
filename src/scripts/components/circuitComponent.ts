@@ -181,9 +181,7 @@ export abstract class CircuitComponent {
 			2,
 			[
 				["Rotate 90° CW", "rotate_right"],
-				["Rotate 90° CCW", "rotate_left"],
 				["Rotate 45° CW", "rotate_right"],
-				["Rotate 45° CCW ", "rotate_left"],
 				["Flip vertically", ["flip", "rotateText"]],
 				["Flip horizontally", "flip"],
 			],
@@ -193,15 +191,7 @@ export abstract class CircuitComponent {
 					getComponentRuntime().addUndoState()
 				},
 				(ev) => {
-					this.rotate(90)
-					getComponentRuntime().addUndoState()
-				},
-				(ev) => {
 					this.rotate(-45)
-					getComponentRuntime().addUndoState()
-				},
-				(ev) => {
-					this.rotate(45)
 					getComponentRuntime().addUndoState()
 				},
 				(ev) => {
@@ -216,9 +206,7 @@ export abstract class CircuitComponent {
 			false,
 			[
 				"Rotate the component 90 degrees clockwise",
-				"Rotate the component 90 degrees counter clockwise",
 				"Rotate the component 45 degrees clockwise",
-				"Rotate the component 45 degrees counter clockwise",
 				"Flip the component around its x-axis",
 				"Flip the component around its y-axis",
 			]

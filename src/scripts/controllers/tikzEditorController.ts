@@ -70,7 +70,7 @@ export class TikzEditorController {
 	private applyButton: HTMLButtonElement
 	private copyCodeButton: HTMLButtonElement
 	private saveCodeButton: HTMLButtonElement
-	private saveServerButton: HTMLButtonElement
+	private saveServerButton: HTMLButtonElement | null
 
 	private isResizing = false
 	private startX = 0
@@ -84,7 +84,7 @@ export class TikzEditorController {
 		this.applyButton = document.getElementById("applyTikzButton") as HTMLButtonElement
 		this.copyCodeButton = document.getElementById("copyTikzCodeButton") as HTMLButtonElement
 		this.saveCodeButton = document.getElementById("saveTikzCodeButton") as HTMLButtonElement
-		this.saveServerButton = document.getElementById("saveServerCodeButton") as HTMLButtonElement
+		this.saveServerButton = document.getElementById("saveServerCodeButton") as HTMLButtonElement | null
 
 		this.initEvents()
 	}

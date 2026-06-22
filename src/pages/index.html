@@ -92,6 +92,29 @@
 								</button>
 							</li>
 							<li class="nav-item col-12 col-md-auto">
+								<button
+									type="button"
+									class="btn btn-outline-success"
+									id="addComponentButton"
+									data-bs-toggle="tooltip"
+									data-bs-placement="bottom"
+									data-bs-title="Open component drawer (Q)"
+									aria-controls="leftOffcanvas">
+									<span class="d-flex align-items-center justify-content-center" style="font-size: 1.15rem; line-height: 1;">➕</span>
+								</button>
+							</li>
+							<li class="nav-item col-12 col-md-auto">
+								<button
+									type="button"
+									class="btn btn-outline-warning"
+									id="modeDrawLine"
+									data-bs-toggle="tooltip"
+									data-bs-placement="bottom"
+									data-bs-title="Draw wires (W)">
+									<span class="d-flex align-items-center justify-content-center" style="font-size: 1.15rem; line-height: 1;">✏️</span>
+								</button>
+							</li>
+							<li class="nav-item col-12 col-md-auto">
 								<button class="nav-link fw-semibold active" id="btn-visual-editor" type="button">🎨 Visual Editor</button>
 							</li>
 							<li class="nav-item col-12 col-md-auto">
@@ -133,17 +156,6 @@
 									data-bs-placement="bottom"
 									data-bs-title="Canvas Grid Settings">
 									<span style="font-size: 1.15rem; line-height: 1;">⚙️</span>
-								</button>
-							</li>
-							<li class="nav-item col-12 col-md-auto">
-								<button
-									type="button"
-									class="btn btn-outline"
-									id="exportSVGButton"
-									data-bs-toggle="tooltip"
-									data-bs-placement="bottom"
-									data-bs-title="Export the circuit as SVG code (Ctrl/⌘ + Shift + E)">
-									<span class="d-flex align-items-center justify-content-center" style="font-size: 1.15rem; line-height: 1;">🖼️</span>
 								</button>
 							</li>
 
@@ -215,8 +227,8 @@
 								<button type="button" class="btn btn-secondary btn-sm icon-button" id="saveTikzCodeButton" data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-title="Save TikZ code (.tikz)">
 									<span class="d-flex align-items-center justify-content-center" style="font-size: 1.05rem; line-height: 1;">💾</span>
 								</button>
-								<button type="button" class="btn btn-secondary btn-sm icon-button" id="saveServerCodeButton" data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-title="Save to Server (Cloud)">
-									<span class="d-flex align-items-center justify-content-center" style="font-size: 1.05rem; line-height: 1;">📤</span>
+								<button type="button" class="btn btn-secondary btn-sm icon-button" id="exportSVGButton" data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-title="Export the circuit as SVG code (Ctrl/⌘ + Shift + E)">
+									<span class="d-flex align-items-center justify-content-center" style="font-size: 1.05rem; line-height: 1;">🖼️</span>
 								</button>
 								<button type="button" class="btn btn-primary btn-sm icon-button" id="applyTikzButton">
 									<span class="material-symbols-outlined" style="font-size: 18px; width: 18px; height: 18px;">done</span>Apply
@@ -232,75 +244,7 @@
 				<div class="col-12 col-md position-relative ps-md-0 d-flex flex-column" id="canvasContainer">
 					<!-- Tab Contents -->
 					<div class="flex-grow-1 position-relative w-100 h-100" id="canvasTabContent">
-						<!-- Visual Editor Tab -->
 						<div id="visualEditorTab" class="w-100 h-100 position-absolute top-0 start-0 active">
-							<div
-								class="z-1 position-absolute border rounded bg-body d-flex flex-row justify-content-center gap-2 align-items-center shadow-sm"
-								id="controlsContainer" style="top: 0px; left: 50%; transform: translateX(-50%); padding: 4px !important; border-radius: 6px !important; border: 1px solid var(--border-color) !important; background-color: rgba(255, 255, 255, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);">
-								<div class="d-flex gap-1 align-items-center">
-									<a
-										id="addComponentButton"
-										class="toolbarButton material-symbols-outlined"
-										role="button"
-										data-bs-toggle="tooltip"
-										data-bs-placement="bottom"
-										data-bs-title="Open component drawer (Q)"
-										aria-controls="leftOffcanvas"
-										>add</a
-									>
-								</div>
-								<div class="vr" style="height: 14px; align-self: center;"></div>
-								<div class="d-flex gap-1 align-items-center">
-									<a
-										id="modeDragPan"
-										class="toolbarButton material-symbols-outlined selected"
-										role="button"
-										data-bs-toggle="tooltip"
-										data-bs-placement="bottom"
-										data-bs-title="Pan or zoom the canvas (Esc)"
-										>drag_pan</a
-									>
-									<a
-										id="modeDrawLine"
-										class="toolbarButton material-symbols-outlined"
-										role="button"
-										data-bs-toggle="tooltip"
-										data-bs-placement="bottom"
-										data-bs-title="Draw wires (W)"
-										>draw</a
-									>
-									<a
-										id="modeEraser"
-										class="toolbarButton material-symbols-outlined"
-										role="button"
-										data-bs-toggle="tooltip"
-										data-bs-placement="bottom"
-										data-bs-title="Erase components and wires (Del, Backspace)"
-										>ink_eraser</a
-									>
-								</div>
-								<div class="vr" style="height: 14px; align-self: center;"></div>
-								<div class="d-flex gap-1 align-items-center">
-									<a
-										role="button"
-										class="toolbarButton material-symbols-outlined"
-										id="undoButton"
-										data-bs-toggle="tooltip"
-										data-bs-placement="bottom"
-										data-bs-title="Undo (Ctrl/⌘+Z)"
-										>undo</a
-									>
-									<a
-										role="button"
-										class="toolbarButton material-symbols-outlined"
-										id="redoButton"
-										data-bs-toggle="tooltip"
-										data-bs-placement="bottom"
-										data-bs-title="Redo (Ctrl/⌘+Y)"
-										>redo</a
-									>
-								</div>
-							</div>
 							<!-- The actual canvas -->
 							<include src="pages/canvas.svg"></include>
 						</div>

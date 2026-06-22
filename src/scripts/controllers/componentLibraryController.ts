@@ -36,8 +36,8 @@ export class ComponentLibraryController {
 			}
 		})
 
-		const addComponentButton: HTMLAnchorElement = document.getElementById("addComponentButton") as HTMLAnchorElement
-		addComponentButton.addEventListener(
+		const addComponentButton = document.getElementById("addComponentButton") as HTMLElement | null
+		addComponentButton?.addEventListener(
 			"click",
 			((ev: PointerEvent) => {
 				callbacks.switchToPanMode()
