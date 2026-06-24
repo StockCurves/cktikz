@@ -336,6 +336,12 @@ body {
       border-left: 3px solid var(--danger);
       padding-left: 5px;
     }
+
+    &.highlight-yellow {
+      background-color: rgba(245, 158, 11, 0.15);
+      border-left: 3px solid var(--warning);
+      padding-left: 5px;
+    }
   }
 
   .error-msg {
@@ -408,17 +414,11 @@ body {
 	}
 	
 	svg {
-		box-shadow: var(--shadow-sm);
-		border: 1px solid var(--border-color);
-		border-radius: 8px;
 		padding: 24px;
 		background-color: #ffffff; // keep svg canvas white for readability
 	}
 	
 	img {
-		box-shadow: var(--shadow-sm);
-		border: 1px solid var(--border-color);
-		border-radius: 8px;
 		padding: 24px;
 		background-color: #ffffff;
 		max-width: 90%;
@@ -463,6 +463,8 @@ body {
 	background-color: transparent !important;
 	box-shadow: none !important;
 	color: var(--text-main) !important;
+	padding-left: 6px !important;
+	padding-right: 6px !important;
 
 	&:hover {
 		background-color: var(--primary-light) !important;

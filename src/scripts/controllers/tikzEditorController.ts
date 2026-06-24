@@ -213,15 +213,19 @@ export class TikzEditorController {
 	}
 
 	public clearHighlightsAndErrors() {
-		const errorMsgs = this.editorTextArea.querySelectorAll(".error-msg")
+		const errorMsgs = this.editorTextArea.querySelectorAll(".error-msg, .warning-msg")
 		errorMsgs.forEach((el) => el.remove())
 
 		const lines = Array.from(this.editorTextArea.children) as HTMLDivElement[]
 		lines.forEach((line) => {
-			line.classList.remove("highlight-blue", "highlight-red")
+			line.classList.remove("highlight-blue", "highlight-red", "highlight-yellow")
 		})
 		
 		this.editorError.style.display = "none"
+		this.editorError.style.backgroundColor = ""
+		this.editorError.style.color = ""
+		this.editorError.style.border = ""
+		this.editorError.innerText = ""
 	}
 
 	public highlightSelectedComponents() {
@@ -346,8 +350,43 @@ export class TikzEditorController {
 			}
 
 			// Instantiate new ones from the parsed JSON save objects
+			let hasWarnings = false;
 			for (const obj of parsedSaveObjects) {
+				if (obj.type === "parse_error") {
+					hasWarnings = true;
+					const lineDivs = Array.from(this.editorTextArea.children) as HTMLDivElement[]
+					const targetDiv = lineDivs[obj.lines[0] - 1]
+					if (targetDiv) {
+						targetDiv.classList.add("highlight-yellow")
+						
+						const warningBubble = document.createElement("div")
+						warningBubble.className = "warning-msg"
+						warningBubble.setAttribute("contenteditable", "false")
+						warningBubble.innerText = "Warning: " + obj.message
+						
+						warningBubble.style.color = "#856404";
+						warningBubble.style.backgroundColor = "#fff3cd";
+						warningBubble.style.border = "1px solid #ffeeba";
+						warningBubble.style.padding = "2px 5px";
+						warningBubble.style.marginTop = "2px";
+						warningBubble.style.fontSize = "0.9em";
+						warningBubble.style.borderRadius = "3px";
+						
+						targetDiv.appendChild(warningBubble)
+					}
+					continue;
+				}
 				CircuitComponent.fromJson(obj)
+			}
+
+			if (hasWarnings) {
+				this.editorError.innerText = "Some lines could not be parsed and were skipped (highlighted in yellow)."
+				this.editorError.style.display = "block"
+				this.editorError.style.backgroundColor = "#fff3cd"
+				this.editorError.style.color = "#856404"
+				this.editorError.style.border = "1px solid #ffeeba"
+			} else {
+				this.editorError.style.display = "none"
 			}
 
 			// Save state in undo stack
@@ -355,23 +394,27 @@ export class TikzEditorController {
 			
 			this.updateEditorText()
 		} catch (error: any) {
+			let errorMsg = ""
 			if (error.startLine !== undefined) {
-				const lineDivs = Array.from(this.editorTextArea.children) as HTMLDivElement[]
-				const targetDiv = lineDivs[error.startLine - 1]
-				if (targetDiv) {
-					targetDiv.classList.add("highlight-red")
-					
-					const errorBubble = document.createElement("div")
-					errorBubble.className = "error-msg"
-					errorBubble.setAttribute("contenteditable", "false")
-					errorBubble.innerText = "Error: " + error.message
-					
-					targetDiv.appendChild(errorBubble)
-				}
+				errorMsg = `Line ${error.startLine}: ${error.message}\n\nStack:\n${error.stack}`
 			} else {
-				this.editorError.innerText = "Error parsing TikZ:\n" + error.message
-				this.editorError.style.display = "block"
+				errorMsg = "Error parsing TikZ:\n" + error.message + "\n\nStack:\n" + error.stack
 			}
+			
+			this.editorError.innerText = errorMsg
+			this.editorError.style.display = "block"
+			
+			const copyBtn = document.createElement("button")
+			copyBtn.className = "btn btn-sm btn-outline-danger position-absolute top-0 end-0 m-1"
+			copyBtn.style.padding = "2px 6px"
+			copyBtn.style.fontSize = "10px"
+			copyBtn.innerText = "Copy"
+			copyBtn.onclick = () => {
+				navigator.clipboard.writeText(errorMsg)
+				copyBtn.innerText = "Copied!"
+				setTimeout(() => copyBtn.innerText = "Copy", 2000)
+			}
+			this.editorError.appendChild(copyBtn)
 		}
 	}
 }

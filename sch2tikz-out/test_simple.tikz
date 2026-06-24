@@ -1,0 +1,7 @@
+\documentclass{standalone}
+\usepackage{circuitikz}
+\begin{document}
+\begin{circuitikz}
+\draw (0,0) to[R=$R_1$] (2,0);
+\end{circuitikz}
+\end{document}

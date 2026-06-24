@@ -158,4 +158,60 @@ describe("parseTikz parser lint relaxation", () => {
 			})
 		)
 	})
+
+	it("should parse full LaTeX documents containing documentclass and usepackage without errors", () => {
+		const fullLatexCode = `\\documentclass[tikz,border=10pt]{standalone}
+		\\usepackage[siunitx,american]{circuitikz}
+		\\begin{document}
+		\\begin{circuitikz}
+		\\draw (0,0) to[R, l=$R_1$] (2,0);
+		\\end{circuitikz}
+		\\end{document}`;
+		const result = parseTikz(fullLatexCode);
+		expect(result).toHaveLength(1);
+		expect(result[0].type).toBe("path");
+		expect(result[0].id).toBe("american resistor");
+	});
+
+	it("should parse standalone fill circle command as ellipse component with black fill and 0px stroke", () => {
+		const code = `\\fill (3.5, 3) circle (2pt);`;
+		const result = parseTikz(code);
+		expect(result).toHaveLength(1);
+		expect(result[0].type).toBe("ellipse");
+		expect(result[0].fill.color).toBe("#000000");
+		expect(result[0].fill.opacity).toBe(1);
+		expect(result[0].stroke.width).toBe("0px");
+		// Verify position conversion (3.5, 3) -> (3.5/scale, -3/scale)
+		expect(result[0].position.x).toBeCloseTo(3.5 / scale, 1);
+		expect(result[0].position.y).toBeCloseTo(-3.0 / scale, 1);
+		// Size should be (2pt * 2) = 4pt
+		const expectedPx = (2 * 2.54 / 72) * 2 / scale;
+		expect(result[0].size.x).toBeCloseTo(expectedPx, 1);
+	});
+
+	it("should parse draw rectangle command as a rect component with correct bounding box", () => {
+		const code = `\\draw[dashed] (-2.5, -1) rectangle (17, 6.8);`;
+		const result = parseTikz(code);
+		expect(result).toHaveLength(1);
+		expect(result[0].type).toBe("rect");
+		expect(result[0].stroke.style).toBe("dashed");
+		expect(result[0].fill.opacity).toBe(0);
+
+		// Coords in cm: (-2.5, -1) and (17, 6.8)
+		// SVG coords: x1 = -2.5 / scale, x2 = 17 / scale, y1 = 1 / scale, y2 = -6.8 / scale
+		const x1 = -2.5 / scale;
+		const x2 = 17.0 / scale;
+		const y1 = 1.0 / scale; // y=-1 -> negated to 1
+		const y2 = -6.8 / scale; // y=6.8 -> negated to -6.8
+		const expectedCenterX = (x1 + x2) / 2;
+		const expectedCenterY = (y1 + y2) / 2;
+		const expectedWidth = Math.abs(x2 - x1);
+		const expectedHeight = Math.abs(y2 - y1);
+
+		expect(result[0].position.x).toBeCloseTo(expectedCenterX, 1);
+		expect(result[0].position.y).toBeCloseTo(expectedCenterY, 1);
+		expect(result[0].size.x).toBeCloseTo(expectedWidth, 1);
+		expect(result[0].size.y).toBeCloseTo(expectedHeight, 1);
+	});
 });
+

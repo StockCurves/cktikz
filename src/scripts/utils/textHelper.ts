@@ -352,11 +352,179 @@ export type MathJaxRenderInfo = {
 	// the height of the rendered mathjax element
 	height: number
 }
+type Node =
+	| { type: "text"; value: string }
+	| { type: "cmd"; name: string; children: Node[] }
+	| { type: "group"; children: Node[] }
+
+function parseLatex(str: string): Node[] {
+	let i = 0
+	function parseNodes(endChar?: string): Node[] {
+		const nodes: Node[] = []
+		let currentText = ""
+		const flushText = () => {
+			if (currentText) {
+				nodes.push({ type: "text", value: currentText })
+				currentText = ""
+			}
+		}
+
+		while (i < str.length) {
+			const char = str[i]
+			if (endChar && char === endChar) {
+				i++ // skip endChar
+				break
+			}
+			if (char === "\\") {
+				const match = str.substring(i).match(/^\\([A-Za-z]+)/)
+				if (match) {
+					flushText()
+					const cmdName = "\\" + match[1]
+					i += match[0].length
+					if (str[i] === "{") {
+						i++ // skip '{'
+						const children = parseNodes("}")
+						nodes.push({ type: "cmd", name: cmdName, children })
+					} else {
+						currentText += cmdName
+					}
+				} else {
+					currentText += "\\"
+					i++
+				}
+			} else if (char === "{") {
+				flushText()
+				i++ // skip '{'
+				const children = parseNodes("}")
+				nodes.push({ type: "group", children })
+			} else {
+				currentText += char
+				i++
+			}
+		}
+		flushText()
+		return nodes
+	}
+	return parseNodes()
+}
+
+const styleCmds = new Set(["\\textbf", "\\text", "\\textit", "\\textrm", "\\textsf", "\\texttt"])
+
+function hasSubSup(nodes: Node[]): boolean {
+	return nodes.some(node => {
+		if (node.type === "cmd") {
+			if (node.name === "\\textsubscript" || node.name === "\\textsuperscript") {
+				return true
+			}
+			return hasSubSup(node.children)
+		}
+		if (node.type === "group") {
+			return hasSubSup(node.children)
+		}
+		return false
+	})
+}
+
+function transformAST(nodes: Node[]): Node[] {
+	const result: Node[] = []
+	for (const node of nodes) {
+		if (node.type === "cmd") {
+			if (styleCmds.has(node.name) && hasSubSup(node.children)) {
+				const distributedChildren: Node[] = node.children.map(child => {
+					if (child.type === "text") {
+						return { type: "cmd", name: node.name, children: [child] }
+					}
+					if (child.type === "cmd") {
+						if (child.name === "\\textsubscript" || child.name === "\\textsuperscript") {
+							return {
+								type: "cmd",
+								name: child.name,
+								children: child.children.map(c => ({
+									type: "cmd",
+									name: node.name,
+									children: [c]
+								}))
+							}
+						} else {
+							return { type: "cmd", name: node.name, children: [child] }
+						}
+					}
+					if (child.type === "group") {
+						return {
+							type: "group",
+							children: child.children.map(c => ({
+								type: "cmd",
+								name: node.name,
+								children: [c]
+							}))
+						}
+					}
+					return child
+				})
+				result.push(...transformAST(distributedChildren))
+			} else {
+				result.push({
+					type: "cmd",
+					name: node.name,
+					children: transformAST(node.children)
+				})
+			}
+		} else if (node.type === "group") {
+			result.push({
+				type: "group",
+				children: transformAST(node.children)
+			})
+		} else {
+			result.push(node)
+		}
+	}
+	return result
+}
+
+function serializeAST(nodes: Node[], inTextMode = false, wrapInText = false): string {
+	if (nodes.length === 0 && wrapInText) {
+		return "\\text{}"
+	}
+	let str = ""
+	for (const node of nodes) {
+		if (node.type === "text") {
+			let val = node.value
+			if (inTextMode) {
+				val = val.replace(/\\_/g, "_")
+			}
+			if (inTextMode && wrapInText) {
+				str += `\\text{${val}}`
+			} else {
+				str += val
+			}
+		} else if (node.type === "cmd") {
+			if (node.name === "\\textsubscript") {
+				str += `_{${serializeAST(node.children, true, true)}}`
+			} else if (node.name === "\\textsuperscript") {
+				str += `^{${serializeAST(node.children, true, true)}}`
+			} else {
+				// style commands internally establish text mode, so sub-elements do not need outer \text
+				str += node.name + "{" + serializeAST(node.children, true, false) + "}"
+			}
+		} else if (node.type === "group") {
+			str += "{" + serializeAST(node.children, inTextMode, wrapInText) + "}"
+		}
+	}
+	return str
+}
+
+export function replaceLatexSubSup(str: string): string {
+	const ast = parseLatex(str)
+	const transformed = transformAST(ast)
+	return serializeAST(transformed)
+}
+
 export function renderMathJax(text: string, fontSize = 10): MathJaxRenderInfo {
+	const processedText = replaceLatexSubSup(text)
 	// @ts-ignore
 	window.MathJax.texReset()
 	// @ts-ignore
-	const node = window.MathJax.tex2svg(text, { display: false })
+	const node = window.MathJax.tex2svg(processedText, { display: false })
 	// mathjax renders the text via an svg container. That container also contains definitions and SVG.Use elements. get that container
 	let svgElement = new SVG.Svg(node.querySelector("svg"))
 

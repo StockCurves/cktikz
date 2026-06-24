@@ -274,6 +274,8 @@ const TIKZ_NAME_MAP: { [key: string]: string } = {
 	"isourcesin": "sinusoidal current source",
 	"vsource": "american voltage source",
 	"isource": "american current source",
+	"I": "american current source",
+	"V": "american voltage source",
 	"vsourcedc": "dcvsource",
 	"isourcedc": "dcisource",
 	"battery": "battery"
@@ -337,6 +339,8 @@ function stripPreambles(code: string): string {
 	}
 
 	// 2. Replace other preambles using regex with spaces
+	clean = clean.replace(/\\documentclass[^{]*\{[^}]*\}/g, (match) => " ".repeat(match.length));
+	clean = clean.replace(/\\usepackage[^{]*\{[^}]*\}/g, (match) => " ".repeat(match.length));
 	clean = clean.replace(/\\usetikzlibrary\s*\{[^}]*\}/g, (match) => " ".repeat(match.length));
 	clean = clean.replace(/\\ctikzset\s*\{[^}]*\}/g, (match) => " ".repeat(match.length));
 	clean = clean.replace(/\\begin\s*\{[^}]*\}\s*(?:\[[^\]]*\])?/g, (match) => " ".repeat(match.length));
@@ -443,10 +447,11 @@ export function parseTikz(tikzCode: string): any[] {
 	}
 
 	const throwParseError = (message: string, startLine: number, endLine: number) => {
-		const err = new Error(message);
-		(err as any).startLine = startLine;
-		(err as any).endLine = endLine;
-		throw err;
+		components.push({
+			type: "parse_error",
+			message: message,
+			lines: [startLine, endLine]
+		});
 	};
 
 	const components: any[] = [];
@@ -623,8 +628,10 @@ export function parseTikz(tikzCode: string): any[] {
 					if (innerContent.startsWith("{") && innerContent.endsWith("}")) {
 						innerContent = innerContent.substring(1, innerContent.length - 1).trim();
 					}
-					const isMath = innerContent.startsWith("$") && innerContent.endsWith("$");
-
+					let isMath = innerContent.startsWith("$") && innerContent.endsWith("$");
+					if (!isMath && (innerContent.includes("\\") || innerContent.includes("_") || innerContent.includes("^"))) {
+						isMath = true;
+					}
 					// Parse anchor direction to reconstruct the original center position
 					let anchorName = kv["anchor"] || "";
 					if (!anchorName) {
@@ -695,6 +702,271 @@ export function parseTikz(tikzCode: string): any[] {
 		
 		const trimmedCleanedCmd = cleanedCmd.trim();
 		if (trimmedCleanedCmd) {
+			// Match shape drawing commands: circle or ellipse
+			const shapeMatch = trimmedCleanedCmd.match(/^(?:\\(filldraw|fill|draw))\s*(?:\[([^\]]*)\])?\s*\(([^)]+)\)\s*(circle|ellipse)\s*(?:\(([^)]+)\)|\[([^\]]+)\])/);
+			if (shapeMatch) {
+				const cmdType = shapeMatch[1];
+				const optionsStr = shapeMatch[2] || "";
+				const coordStr = shapeMatch[3];
+				const shapeType = shapeMatch[4];
+				const dimParens = shapeMatch[5];
+				const dimBrackets = shapeMatch[6];
+
+				let pos = new SVG.Point(0, 0);
+				if (coordStr.includes(",")) {
+					pos = parseCoordinate(coordStr);
+				} else {
+					const parts = coordStr.split(".");
+					const nodeName = parts[0].trim();
+					const pinName = parts[1] ? parts[1].trim() : "";
+					const nodeInfo = nodeMap.get(nodeName);
+					if (nodeInfo) {
+						if (nodeInfo.symbol) {
+							pos = getPinAbsolutePosition(nodeInfo, pinName);
+						} else {
+							pos = nodeInfo.pos;
+						}
+					}
+				}
+
+				let rx = 0.1;
+				let ry = 0.1;
+				if (shapeType === "circle") {
+					if (dimParens) {
+						rx = ry = parseDimension(dimParens, 0.1);
+					} else if (dimBrackets) {
+						const { kv } = parseOptions(dimBrackets);
+						const rStr = kv["radius"] || kv["r"] || kv["x radius"] || kv["y radius"];
+						rx = ry = parseDimension(rStr, 0.1);
+					}
+				} else {
+					if (dimParens) {
+						const parts = dimParens.split(/\s+and\s+/);
+						rx = parseDimension(parts[0], 0.1);
+						ry = parseDimension(parts[1] || parts[0], 0.1);
+					} else if (dimBrackets) {
+						const { kv } = parseOptions(dimBrackets);
+						const rxStr = kv["x radius"] || kv["radius"] || kv["r"];
+						const ryStr = kv["y radius"] || kv["radius"] || kv["r"];
+						rx = parseDimension(rxStr, 0.1);
+						ry = parseDimension(ryStr, 0.1);
+					}
+				}
+
+				const widthPx = (rx * 2) / scale;
+				const heightPx = (ry * 2) / scale;
+
+				const isFill = cmdType === "fill" || cmdType === "filldraw";
+				const isDraw = cmdType === "draw" || cmdType === "filldraw";
+
+				const KNOWN_COLORS = ["black", "white", "red", "green", "blue", "cyan", "magenta", "yellow", "gray", "darkgray", "lightgray", "brown", "lime", "olive", "orange", "pink", "purple", "teal", "violet"];
+				const COLOR_HEX: { [key: string]: string } = {
+					black: "#000000",
+					white: "#ffffff",
+					red: "#ff0000",
+					green: "#00ff00",
+					blue: "#0000ff",
+					cyan: "#00ffff",
+					magenta: "#ff00ff",
+					yellow: "#ffff00",
+					gray: "#808080",
+					darkgray: "#a9a9a9",
+					lightgray: "#d3d3d3",
+					brown: "#a52a2a",
+					lime: "#00ff00",
+					olive: "#808000",
+					orange: "#ffa500",
+					pink: "#ffc0cb",
+					purple: "#800080",
+					teal: "#008080",
+					violet: "#ee82ee",
+				};
+
+				const { standalone: cmdStandalone, kv: cmdKv } = parseOptions(optionsStr);
+				let optColor: string | undefined = undefined;
+				for (const opt of cmdStandalone) {
+					if (KNOWN_COLORS.includes(opt.toLowerCase())) {
+						optColor = COLOR_HEX[opt.toLowerCase()];
+						break;
+					}
+				}
+				if (cmdKv["fill"] && KNOWN_COLORS.includes(cmdKv["fill"].toLowerCase())) {
+					optColor = COLOR_HEX[cmdKv["fill"].toLowerCase()];
+				}
+
+				let fillColor = "default";
+				if (isFill) {
+					fillColor = optColor || "#000000";
+				}
+
+				let strokeColor = "default";
+				if (isDraw) {
+					if (cmdKv["draw"] && KNOWN_COLORS.includes(cmdKv["draw"].toLowerCase())) {
+						strokeColor = COLOR_HEX[cmdKv["draw"].toLowerCase()];
+					} else if (optColor) {
+						strokeColor = optColor;
+					}
+				}
+
+				const strokeOpts = parseStrokeOptions(optionsStr);
+				const strokeWidth = isDraw ? (cmdKv["line width"] || "1pt") : "0px";
+				const strokeOpacity = strokeOpts.stroke?.opacity ?? 1;
+				const strokeStyle = strokeOpts.stroke?.style ?? "solid";
+
+				const fillObj: any = { opacity: isFill ? 1 : 0 };
+				if (fillColor !== "default") fillObj.color = fillColor;
+
+				const strokeObj: any = {
+					width: strokeWidth,
+					opacity: strokeOpacity,
+					style: strokeStyle
+				};
+				if (strokeColor !== "default") strokeObj.color = strokeColor;
+
+				components.push({
+					type: "ellipse",
+					position: pos.simplifyForJson(),
+					size: { x: widthPx, y: heightPx },
+					rotation: 0,
+					scale: { x: 1, y: 1 },
+					fill: fillObj,
+					stroke: strokeObj,
+					lines: [startLine, endLine]
+				});
+				continue;
+			}
+
+			// Match shape drawing commands: rectangle
+			const rectMatch = trimmedCleanedCmd.match(/^(?:\\(filldraw|fill|draw))\s*(?:\[([^\]]*)\])?\s*\(([^)]+)\)\s*rectangle\s*\(([^)]+)\)/);
+			if (rectMatch) {
+				const cmdType = rectMatch[1];
+				const optionsStr = rectMatch[2] || "";
+				const coord1Str = rectMatch[3];
+				const coord2Str = rectMatch[4];
+
+				let p1 = new SVG.Point(0, 0);
+				if (coord1Str.includes(",")) {
+					p1 = parseCoordinate(coord1Str);
+				} else {
+					const parts = coord1Str.split(".");
+					const nodeName = parts[0].trim();
+					const pinName = parts[1] ? parts[1].trim() : "";
+					const nodeInfo = nodeMap.get(nodeName);
+					if (nodeInfo) {
+						if (nodeInfo.symbol) {
+							p1 = getPinAbsolutePosition(nodeInfo, pinName);
+						} else {
+							p1 = nodeInfo.pos;
+						}
+					}
+				}
+
+				let p2 = new SVG.Point(0, 0);
+				if (coord2Str.includes(",")) {
+					p2 = parseCoordinate(coord2Str);
+				} else {
+					const parts = coord2Str.split(".");
+					const nodeName = parts[0].trim();
+					const pinName = parts[1] ? parts[1].trim() : "";
+					const nodeInfo = nodeMap.get(nodeName);
+					if (nodeInfo) {
+						if (nodeInfo.symbol) {
+							p2 = getPinAbsolutePosition(nodeInfo, pinName);
+						} else {
+							p2 = nodeInfo.pos;
+						}
+					}
+				}
+
+				const minX = Math.min(p1.x, p2.x);
+				const maxX = Math.max(p1.x, p2.x);
+				const minY = Math.min(p1.y, p2.y);
+				const maxY = Math.max(p1.y, p2.y);
+
+				const widthPx = maxX - minX;
+				const heightPx = maxY - minY;
+				const center = new SVG.Point(minX + widthPx / 2, minY + heightPx / 2);
+
+				const isFill = cmdType === "fill" || cmdType === "filldraw";
+				const isDraw = cmdType === "draw" || cmdType === "filldraw";
+
+				const KNOWN_COLORS = ["black", "white", "red", "green", "blue", "cyan", "magenta", "yellow", "gray", "darkgray", "lightgray", "brown", "lime", "olive", "orange", "pink", "purple", "teal", "violet"];
+				const COLOR_HEX: { [key: string]: string } = {
+					black: "#000000",
+					white: "#ffffff",
+					red: "#ff0000",
+					green: "#00ff00",
+					blue: "#0000ff",
+					cyan: "#00ffff",
+					magenta: "#ff00ff",
+					yellow: "#ffff00",
+					gray: "#808080",
+					darkgray: "#a9a9a9",
+					lightgray: "#d3d3d3",
+					brown: "#a52a2a",
+					lime: "#00ff00",
+					olive: "#808000",
+					orange: "#ffa500",
+					pink: "#ffc0cb",
+					purple: "#800080",
+					teal: "#008080",
+					violet: "#ee82ee",
+				};
+
+				const { standalone: cmdStandalone, kv: cmdKv } = parseOptions(optionsStr);
+				let optColor: string | undefined = undefined;
+				for (const opt of cmdStandalone) {
+					if (KNOWN_COLORS.includes(opt.toLowerCase())) {
+						optColor = COLOR_HEX[opt.toLowerCase()];
+						break;
+					}
+				}
+				if (cmdKv["fill"] && KNOWN_COLORS.includes(cmdKv["fill"].toLowerCase())) {
+					optColor = COLOR_HEX[cmdKv["fill"].toLowerCase()];
+				}
+
+				let fillColor = "default";
+				if (isFill) {
+					fillColor = optColor || "#000000";
+				}
+
+				let strokeColor = "default";
+				if (isDraw) {
+					if (cmdKv["draw"] && KNOWN_COLORS.includes(cmdKv["draw"].toLowerCase())) {
+						strokeColor = COLOR_HEX[cmdKv["draw"].toLowerCase()];
+					} else if (optColor) {
+						strokeColor = optColor;
+					}
+				}
+
+				const strokeOpts = parseStrokeOptions(optionsStr);
+				const strokeWidth = isDraw ? (cmdKv["line width"] || "1pt") : "0px";
+				const strokeOpacity = strokeOpts.stroke?.opacity ?? 1;
+				const strokeStyle = strokeOpts.stroke?.style ?? "solid";
+
+				const fillObj: any = { opacity: isFill ? 1 : 0 };
+				if (fillColor !== "default") fillObj.color = fillColor;
+
+				const strokeObj: any = {
+					width: strokeWidth,
+					opacity: strokeOpacity,
+					style: strokeStyle
+				};
+				if (strokeColor !== "default") strokeObj.color = strokeColor;
+
+				components.push({
+					type: "rect",
+					position: center.simplifyForJson(),
+					size: { x: widthPx, y: heightPx },
+					rotation: 0,
+					scale: { x: 1, y: 1 },
+					fill: fillObj,
+					stroke: strokeObj,
+					lines: [startLine, endLine]
+				});
+				continue;
+			}
+
 			if (trimmedCleanedCmd.startsWith("\\draw")) {
 				cleanedCommands.push({
 					text: trimmedCleanedCmd,

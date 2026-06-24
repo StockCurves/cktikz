@@ -20,6 +20,7 @@ export class LiveRenderController {
 	private renderViewport: HTMLDivElement | null = null
 	private renderSurface: HTMLDivElement | null = null
 	private contentElement: HTMLElement | null = null
+	private fitViewTimeoutId: any = null
 	private panScale = 1
 	private panOffsetX = 0
 	private panOffsetY = 0
@@ -74,7 +75,6 @@ export class LiveRenderController {
 
 			propertiesContainer?.classList.remove("d-none")
 			this.fitVisualEditorDeferred()
-			this.fitViewDeferred()
 		} else {
 			this.visualEditorTab?.classList.remove("active")
 			this.visualEditorTab?.classList.add("d-none")
@@ -94,7 +94,6 @@ export class LiveRenderController {
 			} else {
 				this.fitViewDeferred()
 			}
-			this.fitVisualEditorDeferred()
 		}
 	}
 
@@ -191,10 +190,14 @@ export class LiveRenderController {
 			})
 	}
 
-	public fitView() {
+	public fitView(retryCount = 0) {
+		if (this.fitViewTimeoutId) {
+			clearTimeout(this.fitViewTimeoutId)
+			this.fitViewTimeoutId = null
+		}
+
 		if (!this.renderViewport || !this.contentElement) return
 		const viewportRect = this.renderViewport.getBoundingClientRect()
-		if (viewportRect.width <= 0 || viewportRect.height <= 0) return
 
 		let contentRect: DOMRect | null = null
 		if (this.contentElement instanceof HTMLIFrameElement) {
@@ -205,7 +208,14 @@ export class LiveRenderController {
 			contentRect = this.contentElement.getBoundingClientRect()
 		}
 
-		if (!contentRect || contentRect.width <= 0 || contentRect.height <= 0) return
+		const isLayoutReady = contentRect && contentRect.width > 0 && contentRect.height > 0
+
+		if (viewportRect.width <= 0 || viewportRect.height <= 0 || !isLayoutReady) {
+			if (retryCount < 15) {
+				this.fitViewTimeoutId = setTimeout(() => this.fitView(retryCount + 1), 300)
+			}
+			return
+		}
 
 		// Divide by current panScale to recover the 1:1 unscaled dimensions
 		const rawWidth = contentRect.width / this.panScale
@@ -319,7 +329,13 @@ export class LiveRenderController {
 				this.tikzjaxContainer!.style.position = "relative"
 				badge.classList.add("render-badge")
 				this.tikzjaxContainer!.appendChild(badge)
-				this.fitViewDeferred()
+				if (img.complete) {
+					this.fitViewDeferred()
+				} else {
+					img.addEventListener("load", () => {
+						this.fitViewDeferred()
+					})
+				}
 			}
 			return
 		} catch (apiErr: any) {

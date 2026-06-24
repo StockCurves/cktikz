@@ -85,6 +85,7 @@ export class CanvasController {
 	 * set this to the input element where a drag started to prevent the svg canvas from stealing the focus off the input element
 	 */
 	public draggingFromInput: HTMLElement = null
+	private fitViewTimeoutId: any = null
 
 	/**
 	 * Create the canvas controller.
@@ -238,15 +239,34 @@ export class CanvasController {
 		this.onResizeCanvas()
 	}
 
-	public fitView() {
+	public fitView(retryCount = 0) {
+		if (this.fitViewTimeoutId) {
+			clearTimeout(this.fitViewTimeoutId)
+			this.fitViewTimeoutId = null
+		}
+
+		const rect = this.canvas.node.getBoundingClientRect()
+		const hasComponents = MainController.instance.circuitComponents.length > 0
+
 		let bbox: SVG.Box = null
-		for (const component of MainController.instance.circuitComponents) {
-			let compBBox = component.visualization.bbox()
-			if (bbox) {
-				bbox = bbox.merge(compBBox)
-			} else {
-				bbox = compBBox
+		if (hasComponents) {
+			for (const component of MainController.instance.circuitComponents) {
+				let compBBox = component.visualization.bbox()
+				if (bbox) {
+					bbox = bbox.merge(compBBox)
+				} else {
+					bbox = compBBox
+				}
 			}
+		}
+
+		const isLayoutReady = !hasComponents || (bbox && bbox.w > 0 && bbox.h > 0)
+
+		if (rect.width <= 0 || rect.height <= 0 || !isLayoutReady) {
+			if (retryCount < 10) {
+				this.fitViewTimeoutId = setTimeout(() => this.fitView(retryCount + 1), 300)
+			}
+			return
 		}
 
 		if (bbox) {

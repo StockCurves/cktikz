@@ -1,0 +1,137 @@
+\documentclass[tikz,border=10pt]{standalone}
+\usepackage[siunitx,american]{circuitikz}
+
+\begin{document}
+\begin{circuitikz}[line width=1pt]
+
+% Dashed Box
+\draw (-2.5, -1) rectangle (17, 6.8);
+\draw (-2.3, -0.8) node[above right] {OP2};
+
+% Power rail
+\draw (-1.5, 6) -- (16, 6);
+\draw (-1.5, 6) node[above] {$\mathbf{V_{LV}}$};
+
+% Stage 1
+\draw (1, 6) to[I] (1, 4.5);
+\draw (1, 4.5) -- (0, 4.5);
+\draw (1, 4.5) -- (2, 4.5);
+
+\draw (0, 3) node[pmos] {};
+\draw (2, 3) node[pmos] {};
+
+\draw (0, 4.5) -- (0, 3.77);
+\draw (2, 4.5) -- (2, 3.77);
+
+% VCM_CTRL input
+\draw (-1.5, 3) -- (-0.98, 3);
+\draw (-1.5, 3) node[above] {\textbf{V\textsubscript{CM\_CTRL}}};
+
+% Resistor divider for P1R
+\draw (3.5, 4.5) to[R] (3.5, 3);
+\draw (3.5, 3) to[R] (3.5, 1.5);
+\draw (3.5, 4.5) node[above] {$\mathbf{V_{OP2}}$};
+\draw (3.5, 1.5) node[below] {$\mathbf{V_{ON2}}$};
+
+\draw (3.5, 3) -- (2.98, 3);
+\fill (3.5, 3) circle (2pt);
+
+\draw (0, 1) node[nmos] {};
+\draw (2, 1) node[nmos] {};
+
+\draw (0, 2.23) -- (0, 1.77);
+\draw (2, 2.23) -- (2, 1.77);
+
+\draw (0, 0.23) node[ground] {};
+\draw (2, 0.23) node[ground] {};
+
+% Diode connection and mirror
+\draw (0, 1.77) -- (0.98, 1.77);
+\draw (0.98, 1.77) -- (0.98, 1);
+\draw (0.98, 1) -- (1.02, 1);
+
+% Stage 2
+\draw (6, 6) to[I] (6, 4.5);
+\draw (6, 4.5) -- (5, 4.5);
+\draw (6, 4.5) -- (7, 4.5);
+
+\draw (5, 3) node[pmos] {};
+\draw (7, 3) node[pmos] {};
+
+\draw (5, 4.5) -- (5, 3.77);
+\draw (7, 4.5) -- (7, 3.77);
+
+\draw (4.02, 3) -- (4, 3);
+\draw (4, 3) node[above] {$\mathbf{V_{IP2}}$};
+
+\draw (7.98, 3) -- (8, 3);
+\draw (8, 3) node[above] {$\mathbf{V_{IN2}}$};
+
+\draw (5, 1) node[nmos] {};
+\draw (7, 1) node[nmos] {};
+
+\draw (5, 2.23) -- (5, 1.77);
+\draw (7, 2.23) -- (7, 1.77);
+
+\draw (5, 0.23) node[ground] {};
+\draw (7, 0.23) node[ground] {};
+
+% CMFB connection
+\draw (2, 2) -- (4, 2);
+\draw (4, 2) -- (4, 1);
+\draw (4, 1) -- (4.02, 1);
+\draw (4.02, 1) -- (6.02, 1);
+\fill (2, 2) circle (2pt);
+\fill (4.02, 1) circle (2pt);
+
+% Stage 3
+\draw (11, 1) node[nmos] {};
+\draw (14, 1) node[nmos] {};
+
+\draw (11, 0.23) node[ground] {};
+\draw (14, 0.23) node[ground] {};
+
+\draw (11, 6) to[I] (11, 4);
+\draw (11, 4) -- (11, 1.77);
+
+\draw (14, 6) to[I] (14, 4);
+\draw (14, 4) -- (14, 1.77);
+
+% Stage 3 Outputs and RC
+\draw (11, 3.5) -- (9.5, 3.5);
+\draw (10.25, 3.5) node[above] {$\mathbf{V_{ON2}}$};
+
+\draw (9.5, 3.5) -- (9.5, 3);
+\draw (9.5, 3) to[R, l=RC] (9.5, 1.5);
+\draw (9.5, 1.5) -- (9.5, 1);
+\draw (9.5, 1) -- (10.02, 1);
+\fill (11, 3.5) circle (2pt);
+
+\draw (14, 3.5) -- (15.5, 3.5);
+\draw (14.75, 3.5) node[above] {$\mathbf{V_{OP2}}$};
+
+\draw (15.5, 3.5) -- (15.5, 3);
+\draw (15.5, 3) to[R, l=RC] (15.5, 1.5);
+\draw (15.5, 1.5) -- (15.5, 1);
+\draw (15.5, 1) -- (13.02, 1);
+\fill (14, 3.5) circle (2pt);
+
+% Stage 2 to Stage 3 routing
+\draw (7, 2) -- (7, 1.2);
+\draw (7, 1.2) -- (9.5, 1.2);
+\fill (7, 2) circle (2pt);
+\fill (9.5, 1.2) circle (2pt);
+
+% LD to M3R
+\draw (5, 2) -- (5, 1.5);
+\draw (5, 1.5) -- (6.8, 1.5);
+\draw (6.8, 1.5) arc(180:0:0.2);
+\draw (7.2, 1.5) -- (10.8, 1.5);
+\draw (10.8, 1.5) arc(180:0:0.2);
+\draw (11.2, 1.5) -- (12.5, 1.5);
+\draw (12.5, 1.5) -- (12.5, 1);
+\draw (12.5, 1) -- (13.02, 1);
+\fill (5, 2) circle (2pt);
+
+\end{circuitikz}
+\end{document}

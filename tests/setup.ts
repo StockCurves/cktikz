@@ -132,3 +132,4 @@ vi.mock("@svgdotjs/svg.js", () => ({
 }))
 
 vi.mock("@svgdotjs/svg.draggable.js", () => ({}))
+vi.mock("@svgdotjs/svg.panzoom.js", () => ({}))

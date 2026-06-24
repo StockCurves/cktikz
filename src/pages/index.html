@@ -79,7 +79,7 @@
 							data-bs-target="#ctNavbar"></button>
 					</div>
 					<div class="offcanvas-body">
-						<ul class="navbar-nav align-items-center" style="gap: 7px !important;">
+						<ul class="navbar-nav align-items-center" style="gap: 6px !important;">
 							<li class="nav-item col-12 col-md-auto">
 								<button
 									type="button"
@@ -88,7 +88,7 @@
 									data-bs-toggle="tooltip"
 									data-bs-placement="bottom"
 									data-bs-title="Toggle TikZ Editor (Ctrl+B)">
-									<span class="d-flex align-items-center justify-content-center" style="font-size: 1.15rem; line-height: 1;">📝</span>
+									<span class="d-flex align-items-center justify-content-center" style="font-size: 1.15rem; line-height: 1;">📖</span>
 								</button>
 							</li>
 							<li class="nav-item col-12 col-md-auto">
@@ -118,7 +118,7 @@
 								<button class="nav-link fw-semibold active" id="btn-visual-editor" type="button">🎨 Visual Editor</button>
 							</li>
 							<li class="nav-item col-12 col-md-auto">
-								<button class="nav-link fw-semibold text-muted" id="btn-live-render" type="button">🔬 Live LaTeX Render</button>
+								<button class="nav-link fw-semibold text-muted" id="btn-live-render" type="button">🔬 Live LaTeX</button>
 							</li>
 							<li class="nav-item col-12 col-md-auto d-flex align-items-center gap-2 px-2">
 								<span class="text-nowrap mb-0 fw-semibold" style="color: var(--text-main); font-size: 14px; font-family: var(--font-sans);">📐 Template:</span>
@@ -145,7 +145,7 @@
 									data-bs-toggle="tooltip"
 									data-bs-placement="bottom"
 									data-bs-title="Save to Work">
-									<span style="font-size: 1.05rem; line-height: 1;">📤</span>
+									<span style="font-size: 1.05rem; line-height: 1;">💾</span>
 									<span>Save to Work</span>
 								</button>
 								<button
@@ -225,7 +225,7 @@
 									<span class="d-flex align-items-center justify-content-center" style="font-size: 1.05rem; line-height: 1;">📋</span>
 								</button>
 								<button type="button" class="btn btn-secondary btn-sm icon-button" id="saveTikzCodeButton" data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-title="Save TikZ code (.tikz)">
-									<span class="d-flex align-items-center justify-content-center" style="font-size: 1.05rem; line-height: 1;">💾</span>
+									<span class="d-flex align-items-center justify-content-center" style="font-size: 1.05rem; line-height: 1;">📥</span>
 								</button>
 								<button type="button" class="btn btn-secondary btn-sm icon-button" id="exportSVGButton" data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-title="Export the circuit as SVG code (Ctrl/⌘ + Shift + E)">
 									<span class="d-flex align-items-center justify-content-center" style="font-size: 1.05rem; line-height: 1;">🖼️</span>
@@ -236,7 +236,7 @@
 							</div>
 						</div>
 						<div id="tikzEditorTextArea" class="flex-grow-1 form-control overflow-y-auto" style="font-size: 14px; resize: none; white-space: pre; outline: none;" spellcheck="false" contenteditable="true"></div>
-						<div id="tikzEditorError" class="alert alert-danger mt-2 small py-2 px-3" style="white-space: pre-wrap; display: none;"></div>
+						<div id="tikzEditorError" class="alert alert-danger mt-2 small py-2 px-3 position-relative" style="white-space: pre-wrap; display: none; max-height: 200px; overflow-y: auto; padding-right: 40px;"></div>
 					</div>
 				</div>
 				<!-- Resizer handler -->
@@ -623,6 +623,9 @@
 						<ul>
 							<li>
 								We use TikZ code as the single source of truth, so we don't use JSON to save circuits.
+							</li>
+							<li class="text-warning">
+								<b>TikZ Code Alteration &amp; Comments Loss</b>: Pressing "Apply" in the TikZ editor synchronizes the code to the visual canvas. This will restructure your TikZ code and completely discard all LaTeX comments (<code>% ...</code>). Please keep an external backup of your code if you want to preserve formatting or comments.
 							</li>
 							<li>
 								Every new browser tab is a new canvas ready for drawing. You can manage the browser tabs

@@ -807,8 +807,10 @@ export class PathSymbolComponent extends Currentable(Voltageable(PathLabelable(N
 			} else {
 				symbol = MainController.instance.symbols.find((symbol) => symbol.tikzName == saveObject.id)
 			}
-			// @ts-ignore
-			saveObject.points = [saveObject.start, saveObject.end]
+			if (saveObject.points === undefined) {
+				// @ts-ignore
+				saveObject.points = [saveObject.start, saveObject.end]
+			}
 		}
 		if (symbol) {
 			let pathComponent: PathSymbolComponent = new PathSymbolComponent(symbol)

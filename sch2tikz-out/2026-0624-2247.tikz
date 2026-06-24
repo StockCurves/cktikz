@@ -1,0 +1,138 @@
+\documentclass{standalone}
+\usepackage[siunitx, american]{circuitikz}
+\usepackage{tikz}
+\usetikzlibrary{calc}
+\begin{document}
+\begin{circuitikz}[american, scale=1.0, every node/.style={transform shape}]
+
+% Terminals and Inputs on the left (drawn as manual rectangles for editor compatibility)
+\draw (0.1, 5.935) rectangle (0.3, 6.085);
+\draw (0.05, 6.01) node[left] {$V_A$};
+
+\draw (0.1, 3.915) rectangle (0.3, 4.065);
+\draw (0.05, 3.99) node[left] {$V_B$};
+
+% OP4 (Voltage Follower)
+\node[op amp] (OP4) at (2, 6.5) {};
+\node at (2.2, 6.5) {OP4};
+\draw (0.2, 6.01) -- (OP4.+);
+\draw (OP4.out) -- (3.5, 6.5);
+\draw (3.5, 6.5) -- (3.5, 8.0);
+\draw (3.5, 8.0) -- (0.5, 8.0);
+\draw (0.5, 8.0) -- (0.5, 6.99);
+\draw (0.5, 6.99) -- (OP4.-);
+\fill (3.5, 6.5) circle (2pt);
+
+% Switch seln (using opening switch which is supported by the editor library)
+\draw (3.5, 6.5) -- (4.0, 6.5);
+\draw (4.0, 6.5) to[opening switch, l=seln] (5.0, 6.5);
+\draw (5.0, 6.5) -- (5.5, 6.5);
+
+% OP5 (Voltage Follower, Flipped)
+\node[op amp, yscale=-1] (OP5) at (2, 3.5) {};
+\node at (2.2, 3.5) {OP5};
+\draw (0.2, 3.99) -- (OP5.+);
+\draw (OP5.out) -- (3.5, 3.5);
+\draw (3.5, 3.5) -- (3.5, 2.0);
+\draw (3.5, 2.0) -- (0.5, 2.0);
+\draw (0.5, 2.0) -- (0.5, 3.01);
+\draw (0.5, 3.01) -- (OP5.-);
+\fill (3.5, 3.5) circle (2pt);
+
+% Switch selp
+\draw (3.5, 3.5) -- (4.0, 3.5);
+\draw (4.0, 3.5) to[opening switch, l=selp] (5.0, 3.5);
+\draw (5.0, 3.5) -- (5.5, 3.5);
+
+% Merging path to OP6
+\draw (5.5, 6.5) -- (5.5, 5.0);
+\draw (5.5, 3.5) -- (5.5, 5.0);
+\fill (5.5, 5.0) circle (2pt);
+
+% OP6 (Integrator)
+\node[op amp] (OP6) at (9.5, 4.51) {};
+\node at (9.7, 4.51) {OP6};
+\draw (5.5, 5.0) to[R, l=$R_{SAW}$] (OP6.-);
+
+% OP6 non-inverting input terminal
+\draw (OP6.+) -- (8.31, 3.2);
+\draw (8.21, 3.125) rectangle (8.41, 3.275);
+\draw (8.31, 3.1) node[below] {$(V_B+V_A)/2$};
+
+% OP6 feedback capacitor
+\draw (8.0, 5.0) -- (8.0, 6.5);
+\draw (8.0, 6.5) to[C, l=$C_{SAW}$] (11.2, 6.5);
+\draw (11.2, 6.5) -- (11.2, 4.51);
+\fill (8.0, 5.0) circle (2pt);
+\fill (11.2, 4.51) circle (2pt);
+
+% OP6 Output
+\draw (OP6.out) -- (12.5, 4.51);
+\draw (12.4, 4.435) rectangle (12.6, 4.585);
+\draw (12.65, 4.51) node[right] {$V_{SAW}$};
+
+% Feedback path to Comparators
+\draw (11.8, 4.51) -- (11.8, -1.0);
+\draw (11.8, -1.0) -- (2.5, -1.0);
+\fill (11.8, 4.51) circle (2pt);
+\fill (2.5, -1.0) circle (2pt);
+
+% Comparator 1 (COMP1)
+\node[op amp] (COMP1) at (5.0, 0.78) {};
+\draw (1.9, 1.195) rectangle (2.1, 1.345);
+\draw (1.85, 1.27) node[left] {$V_{TOP}$};
+\draw (2.0, 1.27) -- (COMP1.-);
+\draw (2.5, -1.0) -- (2.5, 0.29) -- (COMP1.+);
+% Hysteresis loop inside COMP1
+\draw (4.85, 0.72) -- (5.0, 0.72) -- (5.0, 0.84) -- (5.15, 0.84);
+\draw (5.15, 0.84) -- (5.0, 0.84) -- (5.0, 0.72) -- (4.85, 0.72);
+
+% Comparator 2 (COMP2, Flipped)
+\node[op amp, yscale=-1] (COMP2) at (5.0, -2.78) {};
+\draw (1.9, -3.345) rectangle (2.1, -3.195);
+\draw (1.85, -3.27) node[left] {$V_{BOT}$};
+\draw (2.0, -3.27) -- (COMP2.-);
+\draw (2.5, -1.0) -- (2.5, -2.29) -- (COMP2.+);
+% Hysteresis loop inside COMP2
+\draw (4.85, -2.84) -- (5.0, -2.84) -- (5.0, -2.72) -- (5.15, -2.72);
+\draw (5.15, -2.72) -- (5.0, -2.72) -- (5.0, -2.84) -- (4.85, -2.84);
+
+% Inverters
+\node[american not port] (INV1) at (7.5, 0.78) {};
+\draw (COMP1.out) -- (INV1.in 1);
+
+\node[american not port] (INV2) at (7.5, -2.78) {};
+\draw (COMP2.out) -- (INV2.in 1);
+
+% NAND Latch
+\node[american nand port] (NAND1) at (10.0, 0.5) {};
+\draw (INV1.out) -- (NAND1.in 1);
+
+\node[american nand port] (NAND2) at (10.0, -2.5) {};
+\draw (INV2.out) -- (NAND2.in 2);
+
+% Latch Output wires and labels
+\draw (NAND1.out) -- (11.5, 0.5) node[right] {seln};
+\draw (NAND2.out) -- (11.5, -2.5) node[right] {selp};
+
+% Cross-coupling paths
+\fill (10.7, 0.5) circle (2pt);
+\fill (10.7, -2.5) circle (2pt);
+\draw (8.3, 0.22) -- (NAND1.in 2);
+\draw (8.3, -2.22) -- (NAND2.in 1);
+\draw (10.7, 0.5) -- (10.7, 0.2) -- (8.3, -2.0) -- (8.3, -2.22);
+\draw (10.7, -2.5) -- (10.7, -2.2) -- (8.3, -0.4) -- (8.3, 0.22);
+
+% Illustrative Waveform on the right
+\draw (13.5, 3.0) -- (16.0, 3.0);
+\draw (13.5, 1.0) -- (16.0, 1.0);
+\draw (13.5, 1.0) -- (14.2, 3.0) -- (14.9, 1.0) -- (15.6, 3.0);
+\node[above] at (14.8, 3.0) {$V_{TOP}$};
+\node[below] at (14.9, 1.0) {$V_{BOT}$};
+\node[right] at (15.8, 2.0) {$V_{SAW,P2P}$};
+\draw (15.7, 1.0) -- (15.7, 3.0);
+\draw (15.6, 1.0) -- (15.8, 1.0);
+\draw (15.6, 3.0) -- (15.8, 3.0);
+
+\end{circuitikz}
+\end{document}
