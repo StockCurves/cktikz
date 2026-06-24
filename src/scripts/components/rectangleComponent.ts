@@ -484,16 +484,14 @@ export class RectangleComponent extends ShapeComponent {
 			command.options.push("shape=rectangle")
 			super.buildTikzCommand(command)
 
-			let strokeWidth = this.strokeInfo.width.convertToUnit("px").value
-
 			command.options.push(
 				"minimum width=" +
-					roundTikz(new SVG.Number(this.size.x - strokeWidth, "px").convertToUnit("cm").value) +
+					roundTikz(new SVG.Number(this.size.x, "px").convertToUnit("cm").value) +
 					"cm"
 			)
 			command.options.push(
 				"minimum height=" +
-					roundTikz(new SVG.Number(this.size.y - strokeWidth, "px").convertToUnit("cm").value) +
+					roundTikz(new SVG.Number(this.size.y, "px").convertToUnit("cm").value) +
 					"cm"
 			)
 

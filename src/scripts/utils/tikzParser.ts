@@ -613,7 +613,12 @@ export function parseTikz(tikzCode: string): any[] {
 					}
 
 					if (isCircle) {
-						const size = Math.max(widthCm, heightCm);
+						let size = widthCm;
+						if (kv["minimum width"] || kv["minimum size"]) {
+							size = parseDimension(kv["minimum width"] || kv["minimum size"], 1.0);
+						} else if (kv["minimum height"]) {
+							size = parseDimension(kv["minimum height"], 1.0);
+						}
 						widthCm = size;
 						heightCm = size;
 					}
@@ -647,7 +652,7 @@ export function parseTikz(tikzCode: string): any[] {
 						}
 					}
 					if (!anchorName) {
-						anchorName = "north west";
+						anchorName = "center";
 					}
 
 					let dir = new SVG.Point(0, 0);

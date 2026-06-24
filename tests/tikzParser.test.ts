@@ -213,5 +213,26 @@ describe("parseTikz parser lint relaxation", () => {
 		expect(result[0].size.x).toBeCloseTo(expectedWidth, 1);
 		expect(result[0].size.y).toBeCloseTo(expectedHeight, 1);
 	});
+
+	it("should parse node without anchor with center as default anchor direction (not north west)", () => {
+		const code = `\\node[shape=circle, minimum width=0.14cm] () at (3.5, 6.5) {};`;
+		const result = parseTikz(code);
+		expect(result).toHaveLength(1);
+		expect(result[0].type).toBe("ellipse");
+		// If default anchor is center, position should be exactly at (3.5/scale, -6.5/scale)
+		expect(result[0].position.x).toBeCloseTo(3.5 / scale, 1);
+		expect(result[0].position.y).toBeCloseTo(-6.5 / scale, 1);
+	});
+
+	it("should parse circle node with minimum width and no minimum height without scaling it to 1.0cm", () => {
+		const code = `\\node[shape=circle, minimum width=0.14cm] () at (3.5, 6.5) {};`;
+		const result = parseTikz(code);
+		expect(result).toHaveLength(1);
+		expect(result[0].type).toBe("ellipse");
+		// The size should be exactly 0.14cm / scale
+		const expectedPx = 0.14 / scale;
+		expect(result[0].size.x).toBeCloseTo(expectedPx, 1);
+		expect(result[0].size.y).toBeCloseTo(expectedPx, 1);
+	});
 });
 
