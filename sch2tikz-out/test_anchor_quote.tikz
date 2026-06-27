@@ -1,0 +1,4 @@
+\begin{circuitikz}
+\node[fd op amp] (OP1) at (0,0) {};
+\draw (OP1."out +") -- (1,0.49);
+\end{circuitikz}

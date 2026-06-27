@@ -1,0 +1,187 @@
+\documentclass{standalone}
+\usepackage[siunitx, american]{circuitikz}
+\usepackage{tikz}
+\usetikzlibrary{calc}
+\begin{document}
+\begin{circuitikz}[american, scale=1.0, every node/.style={transform shape}]
+
+% INT1 Background Box
+\draw (1.2, 2.7) rectangle (8.1, 7.3);
+\node[above] at (4.65, 7.3) {INT1};
+
+% INT2 Background Box
+\draw (10.3, 1.2) rectangle (19.9, 8.8);
+\node[above] at (15.1, 8.8) {INT2};
+
+% Output Stage Background Box
+\draw (21.5, 2.2) rectangle (23.5, 7.8);
+
+% Terminals (V_IN and V_IP)
+% V_IN Terminal (Left Upper)
+\draw (0.4, 5.415) rectangle (0.6, 5.565);
+\node[left] at (0.3, 5.49) {$V_{IN}$};
+
+% V_IP Terminal (Left Lower)
+\draw (0.4, 4.435) rectangle (0.6, 4.585);
+\node[left] at (0.3, 4.51) {$V_{IP}$};
+
+% OP1 Node (fd op amp)
+\node[fd op amp] (OP1) at (6.0, 5.0) {};
+\node at (6.0, 5.0) {OP1};
+
+% OP1 Power bias (V_HV and V_LV)
+\draw (5.8, 5.54) -- (5.8, 6.0);
+\draw (5.6, 6.0) -- (6.0, 6.0);
+\node[above] at (5.8, 6.0) {$V_{HV}$};
+
+\draw (6.2, 5.54) -- (6.2, 6.0);
+\draw (6.0, 6.0) -- (6.4, 6.0);
+\node[above] at (6.2, 6.0) {$V_{LV}$};
+
+% R1 Resistors
+\draw (0.6, 5.49) -- (1.5, 5.49);
+\draw (1.5, 5.49) to[R=$R_1$] (3.0, 5.49);
+\draw (3.0, 5.49) -- (OP1.-);
+
+\draw (0.6, 4.51) -- (1.5, 4.51);
+\draw (1.5, 4.51) to[R=$R_1$] (3.0, 4.51);
+\draw (3.0, 4.51) -- (OP1.+);
+
+% OP1 Input labels
+\node[above] at (4.2, 5.49) {$V_{IN1}$};
+\node[above] at (4.2, 4.51) {$V_{IP1}$};
+
+% OP1 Feedback Capacitor C1 (Upper)
+\node[circ] at (3.5, 5.49) {};
+\draw (3.5, 5.49) -- (3.5, 7.0);
+\draw (3.5, 7.0) to[C=$C_1$] (7.5, 7.0);
+\draw (7.5, 7.0) -- (7.5, 5.49);
+\node[circ] at (7.5, 5.49) {};
+
+% OP1 Feedback Capacitor C1 (Lower)
+\node[circ] at (3.5, 4.51) {};
+\draw (3.5, 4.51) -- (3.5, 3.0);
+\draw (3.5, 3.0) to[C=$C_1$] (7.5, 3.0);
+\draw (7.5, 3.0) -- (7.5, 4.51);
+\node[circ] at (7.5, 4.51) {};
+
+% OP1 Outputs
+\draw (OP1.out +) -- (8.5, 5.49);
+\draw (OP1.out -) -- (8.5, 4.51);
+\node[above] at (7.8, 5.49) {$V_{OP1}$};
+\node[below] at (7.8, 4.51) {$V_{ON1}$};
+
+% Cross connection between OP1 and INT2
+\draw (8.5, 5.49) -- (10.0, 4.51);
+\draw (8.5, 4.51) -- (10.0, 5.49);
+
+% INT2 Inputs
+\node[above] at (14.8, 5.49) {$V_{IN2}$};
+\node[above] at (14.8, 4.51) {$V_{IP2}$};
+
+% OP2 Node (fd op amp)
+\node[fd op amp] (OP2) at (16.5, 5.0) {};
+\node at (16.5, 5.0) {OP2};
+
+% OP2 Power bias (V_LV)
+\draw (16.4167, 5.539) -- (16.4167, 6.0);
+\draw (16.2167, 6.0) -- (16.6167, 6.0);
+\node[above] at (16.4167, 6.0) {$V_{LV}$};
+
+% R2 Resistors
+\draw (10.0, 5.49) -- (11.5, 5.49);
+\draw (11.5, 5.49) to[R=$R_2$] (13.0, 5.49);
+\draw (13.0, 5.49) -- (OP2.-);
+
+\draw (10.0, 4.51) -- (11.5, 4.51);
+\draw (11.5, 4.51) to[R=$R_2$] (13.0, 4.51);
+\draw (13.0, 4.51) -- (OP2.+);
+
+% INT2 Feedback C5 (Upper)
+\node[circ] at (10.8, 5.49) {};
+\draw (10.8, 5.49) -- (10.8, 7.5);
+\draw (10.8, 7.5) to[C=$C_5$] (19.6, 7.5);
+\draw (19.6, 7.5) -- (19.6, 5.49);
+\node[circ] at (19.6, 5.49) {};
+
+% INT2 Feedback C5 (Lower)
+\node[circ] at (10.8, 4.51) {};
+\draw (10.8, 4.51) -- (10.8, 2.5);
+\draw (10.8, 2.5) to[C=$C_5$] (19.6, 2.5);
+\draw (19.6, 2.5) -- (19.6, 4.51);
+\node[circ] at (19.6, 4.51) {};
+
+% INT2 Feedback R4-C4-C3-R3 (Upper)
+\draw (10.8, 5.49) -- (10.8, 8.5);
+\draw (10.8, 8.5) to[R=$R_4$] (12.0, 8.5) to[C=$C_4$] (13.2, 8.5);
+\draw (13.2, 8.5) to[C=$C_3$] (15.5, 8.5) to[R=$R_3$] (17.5, 8.5);
+\draw (17.5, 8.5) -- (18.8, 8.5);
+\draw (18.8, 8.5) -- (18.8, 5.49);
+\node[circ] at (18.8, 5.49) {};
+
+% INT2 Feedback R4-C4-C3-R3 (Lower)
+\draw (10.8, 4.51) -- (10.8, 1.5);
+\draw (10.8, 1.5) to[R=$R_4$] (12.0, 1.5) to[C=$C_4$] (13.2, 1.5);
+\draw (13.2, 1.5) to[C=$C_3$] (15.5, 1.5) to[R=$R_3$] (17.5, 1.5);
+\draw (17.5, 1.5) -- (18.8, 1.5);
+\draw (18.8, 1.5) -- (18.8, 4.51);
+\node[circ] at (18.8, 4.51) {};
+
+% Middle vertical line connecting upper and lower feedbacks
+\draw (13.2, 8.5) -- (13.2, 1.5);
+
+% INT2 Feedback C2 (Upper)
+\node[circ] at (14.0, 5.49) {};
+\draw (14.0, 5.49) -- (14.0, 6.5);
+\draw (14.0, 6.5) to[C=$C_2$] (18.0, 6.5);
+\draw (18.0, 6.5) -- (18.0, 5.49);
+\node[circ] at (18.0, 5.49) {};
+
+% INT2 Feedback C2 (Lower)
+\node[circ] at (14.0, 4.51) {};
+\draw (14.0, 4.51) -- (14.0, 3.5);
+\draw (14.0, 3.5) to[C=$C_2$] (18.0, 3.5);
+\draw (18.0, 3.5) -- (18.0, 4.51);
+\node[circ] at (18.0, 4.51) {};
+
+% OP2 Outputs
+\draw (OP2.out +) -- (20.5, 5.49);
+\draw (OP2.out -) -- (20.5, 4.51);
+\node[above] at (20.1, 5.49) {$V_{OP2}$};
+\node[below] at (20.1, 4.51) {$V_{ON2}$};
+
+% R7 Resistors
+\draw (20.5, 5.49) to[R=$R_7$] (22.5, 5.49);
+\draw (20.5, 4.51) to[R=$R_7$] (22.5, 4.51);
+
+% R8 Resistors
+\node[circ] at (22.5, 5.49) {};
+\draw (22.5, 5.49) to[R=$R_8$] (22.5, 7.5);
+\node[above] at (22.5, 7.5) {$V_{IP}$};
+
+\node[circ] at (22.5, 4.51) {};
+\draw (22.5, 4.51) to[R=$R_8$] (22.5, 2.5);
+\node[below] at (22.5, 2.5) {$V_{IN}$};
+
+% Outputs (V_SUM,P and V_SUM,N)
+\draw (22.5, 5.49) -- (24.0, 5.49);
+\node[right] at (24.0, 5.49) {$V_{SUM,P}$};
+
+\draw (22.5, 4.51) -- (24.0, 4.51);
+\node[right] at (24.0, 4.51) {$V_{SUM,N}$};
+
+% Global Feedforward Paths
+% VIP (Left Lower) to VIP (Right Upper)
+\node[circ] at (0.8, 4.51) {};
+\draw (0.8, 4.51) -- (0.8, 9.5);
+\draw (0.8, 9.5) -- (22.5, 9.5);
+\draw (22.5, 9.5) -- (22.5, 7.5);
+
+% VIN (Left Upper) to VIN (Right Lower)
+\node[circ] at (1.0, 5.49) {};
+\draw (1.0, 5.49) -- (1.0, 0.5);
+\draw (1.0, 0.5) -- (22.5, 0.5);
+\draw (22.5, 0.5) -- (22.5, 2.5);
+
+\end{circuitikz}
+\end{document}
