@@ -1,28 +1,16 @@
-# 🔌 VisioCirkit
+# <img src="./src/icons/favicon.svg" width="30" style="vertical-align: middle;" /> VisioCirkit
 
 > [!IMPORTANT]
 > This repository is a fork of the original [CircuiTi*k*Z-Designer](https://github.com/Circuit2TikZ/CircuiTikZ-Designer).
 
-> [!WARNING]
->
-> - **Always Backup Your TikZ Code!** 💾 VisioCircuit uses the TikZ code in the editor as the **single source of truth** for your design. To prevent any data loss, please copy and backup your `.tikz` code frequently.
-> - **TikZ Code Alteration & Comments Loss**: Pressing **Apply** in the TikZ editor synchronizes the code to the visual canvas. This process will restructure your TikZ code and completely discard all LaTeX comments (`% ...`). Please keep an external backup of your code if you want to preserve formatting or comments.
-> - **Alternative Preview Option**: As the app is still under active development, rendering bugs may occasionally occur. If you suspect an incorrect render, you can verify your TikZ code in an alternative online previewer such as the [HolaTeX Playground](https://holatex.app/playground.html).
-
----
-
 ## 🎨 About This Project
 
-**CircuiTi*k*Z-Designer** is a visual schematic editor tailored for academic research and engineering development! We aim to eliminate the pain of manually writing LaTeX/TikZ code, letting you design, customize, and export high-quality LaTeX circuit diagrams in the most intuitive way possible! 🎨
+**VisioCirkit** is a schematic editor tailored for academic research and engineering development! We aim to eliminate the pain of manually writing LaTeX/TikZ code, letting you design, customize, and export high-quality LaTeX circuit diagrams in the most intuitive way possible! 🎨
 
 ### ✨ Key Features
 
 - **🔄 Two-Way Sync (TikZ Editor & GUI)**: Real-time synchronization! Modifying the code instantly updates the visual canvas, and manipulating components on the GUI updates the TikZ code simultaneously.
-- **🛠️ Visio-Style Custom Symbol Editor**: Inspect and dynamically modify sub-path attributes (like thickness, coordinates, etc.) of custom components.
-- **💎 Custom Symbol Variant Diffing & Library**: Includes symbol variant diffing logic and custom symbol library management services with a dedicated filter/render engine.
-- **⚡ Optimized Workspace Layout**: High-efficiency UX! The properties sidebar is intelligently hidden unless a single component is selected (saving screen space), the component drawer is moved to the right for intuitive design flows, and quick-action navbar buttons have been added.
-- **🧬 Refactored CircuiTikZ & TikZ Parser**: Built on a solid tokenized parser architecture, fully supporting double-way synchronization for complex shapes, wires, and specialized layout components like `ellipse` and `rectangle`.
-- **📐 Comprehensive Text & Layout Tools**: Rectangle and text components feature complete text formatting controls, sizing, font style options, and responsive boundary configuration.
+- **🛠️ Custom Symbol Editor**: Inspect and dynamically modify sub-path attributes (like thickness, coordinates, etc.) of custom components.
 - **🌟 Rich Enhancements**:
     1. **Custom Categories & Subcircuits**: Organize your design workspace with custom component categories and custom subcircuits.
     2. **Visual Subcircuit Previews**: The symbols panel displays actual, accurate graphical previews of your subcircuits instead of generic boxes!
@@ -30,7 +18,6 @@
     4. **Premium Academic Theme**: Redesigned UI styling with a tailored dark mode palette and smooth gradients to reduce eye strain during long hours of research.
 - **👁️ Live LaTeX Rendering**:
     - **Primary Renderer**: Powered by the **QuickLaTeX API** for high-quality cloud LaTeX compilation, supporting all complex CircuiTikZ syntax and fonts!
-    - **Fallback Renderer**: Automatically falls back to the local **TikZJax (WebAssembly)** engine for offline rendering when network connection is down or QuickLaTeX is unavailable.
 
 ---
 
@@ -42,12 +29,12 @@ Below are the main interface features of **VisioCirkit** and side-by-side compar
 
 The following shows the GUI features and integration with the AI Agent:
 
-| Feature Description                                                                                                                            | Interface Showcase                                                        |
-| :--------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------ |
-| **Sallen-Key Filter GUI Editing**<br>Demonstrates the Visio-like drag-and-drop interface and library configuration.                            | ![Sallen-Key Filter GUI](./examples/2026-sallen-key.png)                  |
-| **HolaTeX Playground Rendering**<br>Demonstrates the real-time two-way synchronization between the TikZ editor and the HolaTeX cloud renderer. | ![HolaTeX Rendered](./examples/2026-tikz-rendered-holatex.png)            |
-| **In-IDE AI Agent Prompting**<br>Demonstrates the dialog process with the AI Agent in the Antigravity IDE to convert hand-drawn schematics.    | ![TikZ Prompt in IDE](./examples/2026-tikz-prompt-in-antigravity-ide.png) |
-| **TikZ Editor Two-Way Sync**<br>Directly invoke the TikZ editor in the IDE to quickly edit code and preview in real-time.                      | ![TikZ Editor](./examples/2026-tikz-editor-from-antigravity.png)          |
+| Feature Description                                                                                                                                          | Interface Showcase                                                        |
+| :----------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------ |
+| **Sallen-Key Filter GUI Editing**<br>Demonstrates the drag-and-drop interface and TikZ editor with two-way editing.                                          | ![Sallen-Key Filter GUI](./examples/2026-sallen-key.png)                  |
+| **Online Latex Rendering for Verification** <br>Demonstrates the code generated through the Visual Editor and verified by the online HolaTeX cloud renderer. | ![HolaTeX Rendered](./examples/2026-tikz-rendered-holatex.png)            |
+| **In-IDE AI Agent Prompting**<br>Demonstrates the dialog process with the AI Agent in the Antigravity IDE to convert schematics in papers.                   | ![TikZ Prompt in IDE](./examples/2026-tikz-prompt-in-antigravity-ide.png) |
+| **TikZ Editor Two-Way Sync**<br>Directly invoke the TikZ editor in the IDE to quickly edit code and preview in real-time.                                    | ![TikZ Editor](./examples/2026-tikz-editor-from-antigravity.png)          |
 
 ---
 
@@ -66,7 +53,10 @@ The Custom Symbol Editor allows users to dynamically modify sub-path attributes,
 
 ### 🤖 Schematic to TikZ Conversion Showcase
 
-This project supports automatically converting schematic bitmap images (such as images from papers) into LaTeX `circuitikz` code, compiled into vector drawings. Below are side-by-side comparisons of the original schematic inputs and their converted vector outputs:
+Use the AI Agent skill `/sch2tikz` to convert schematic to tikz code which are rendered in svg. A good start to visually edit the schematic instead of starting from scratch. Below are side-by-side comparisons of the original schematic inputs and their converted vector outputs.
+
+> [!TIP]
+> While the TikZ code converted directly via the `/sch2tikz` skill might not be flawless initially, combining it with VisioCirkit's real-time two-way sync editing should still save users a significant amount of design time.
 
 #### 1. DCDC Buck Converter
 
@@ -76,12 +66,17 @@ This project supports automatically converting schematic bitmap images (such as 
 
 #### 2. Fully Differential Two-Stage Integrator
 
-|                    Original Schematic                    |                  Converted & Rendered CircuiTikZ                  |
-| :------------------------------------------------------: | :---------------------------------------------------------------: |
+|                        Original Schematic                        |              Converted & Rendered CircuiTikZ              |
+| :--------------------------------------------------------------: | :-------------------------------------------------------: |
 | ![Integrator Original](./sch2tikz-out/2026-0626-2222-upload.png) | ![Integrator Rendered](./sch2tikz-out/2026-0626-2222.svg) |
 
-> [!TIP]
-> While the TikZ code converted directly via the `/sch2tikz` skill might not be flawless initially, combining it with VisioCirkit's real-time two-way sync editing should still save users a significant amount of design time.
+---
+
+> [!WARNING]
+>
+> - **Always Backup Your TikZ Code!** 💾 VisioCircuit uses the TikZ code in the editor as the **single source of truth** for your design. To prevent any data loss, please copy and backup your `.tikz` code frequently.
+> - **TikZ Code Alteration & Comments Loss**: Pressing **Apply** in the TikZ editor synchronizes the code to the visual canvas. This process will restructure your TikZ code and completely discard all LaTeX comments (`% ...`). Please keep an external backup of your code if you want to preserve formatting or comments.
+> - **Alternative Preview Option**: As the app is still under active development, rendering bugs may occasionally occur. If you suspect an incorrect render, you can verify your TikZ code in an alternative online previewer such as the [HolaTeX Playground](https://holatex.app/playground.html).
 
 ---
 
