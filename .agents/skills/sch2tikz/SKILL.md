@@ -9,17 +9,29 @@ This skill converts schematic circuit diagrams into clean, editor-compatible Cir
 
 ## Process
 
-1. **Analyze Schematic**: Inspect the schematic diagram to identify all components, terminals, loops, and wire routes.
-2. **Lookup Pin Offsets**: For multi-pin components (op amps, logic gates, transistors), run the lookup script to get exact pin coordinates relative to the component center:
+1. **Save Uploaded Image**: Save the user's uploaded circuit image to the output directory:
+   ```bash
+   # Copy the uploaded image from temp media storage
+   cp <temp_media_path> sch2tikz-out/YYYY-MMDD-HHMM-upload.png
+   ```
+2. **Analyze Schematic**: Inspect the schematic diagram to identify all components, terminals, loops, and wire routes.
+3. **Lookup Pin Offsets**: For multi-pin components (op amps, logic gates, transistors), run the lookup script to get exact pin coordinates relative to the component center:
    ```bash
    python .agents/skills/sch2tikz/scripts/lookup_pin_offset.py "op amp"
    ```
-3. **Draft TikZ Code**: Write clean TikZ code using the **Editor Compatibility Rules** below.
-4. **Compile and Verify**: Save to a `.tikz` file and compile to a vector SVG using the verification script:
+4. **Draft TikZ Code**: Write clean TikZ code using the **Editor Compatibility Rules** below.
+5. **Compile and Verify**: Save to a `.tikz` file and compile to a vector SVG using the verification script:
    ```bash
    python .agents/skills/sch2tikz/scripts/verify_tikz.py sch2tikz-out/YYYY-MMDD-HHMM.tikz
    ```
-5. **Iterate**: Inspect the compiled SVG. If there are misalignment or layout bugs, update the coordinates and compile again until perfect.
+6. **Iterate**: Inspect the compiled SVG. If there are misalignment or layout bugs, update the coordinates and compile again until perfect.
+
+## Output Formatting & Storage
+
+Save the resulting files in the following format:
+- `sch2tikz-out/YYYY-MMDD-HHMM-upload.png` (the original uploaded schematic image)
+- `sch2tikz-out/YYYY-MMDD-HHMM.tikz` (the CircuiTikZ LaTeX source file)
+- `sch2tikz-out/YYYY-MMDD-HHMM.png` or `_rendered.svg` (the compiled output image)
 
 ---
 

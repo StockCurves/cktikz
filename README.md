@@ -1,26 +1,16 @@
-# VisioCirkit
+# <img src="./src/icons/favicon.svg" width="30" style="vertical-align: middle;" /> VisioCirkit
 
 > [!IMPORTANT]
-> This repository is a fork of the original [CircuiTi*k*Z-Designer](https://github.com/Circuit2TikZ/CircuiTikZ-Designer). We have introduced a range of powerful new features to enhance custom component editing, TikZ synchronization, and the design workflow.
-
-> [!WARNING]
->
-> - **Always Backup Your TikZ Code!** 💾 VisioCircuit uses the TikZ code in the editor as the **single source of truth** for your design. To prevent any data loss, please copy and backup your `.tikz` code frequently.
-> - **TikZ Code Alteration & Comments Loss**: Pressing **Apply** in the TikZ editor synchronizes the code to the visual canvas. This process will restructure your TikZ code and completely discard all LaTeX comments (`% ...`). Please keep an external backup of your code if you want to preserve formatting or comments.
-> - **Alternative Preview Option**: As the app is still under active development, rendering bugs may occasionally occur. If you suspect an incorrect render, you can verify your TikZ code in an alternative online previewer such as the [HolaTeX Playground](https://holatex.app/playground.html).
-
----
+> This repository is a fork of the original [CircuiTi*k*Z-Designer](https://github.com/Circuit2TikZ/CircuiTikZ-Designer).
 
 ## 🎨 About This Project
 
-**CircuiTi*k*Z-Designer** is a visual schematic editor tailored for academic research and engineering development! We aim to eliminate the pain of manually writing LaTeX/TikZ code, letting you design, customize, and export high-quality LaTeX circuit diagrams in the most intuitive way possible! 🎨
+**VisioCirkit** is a schematic editor tailored for academic research and engineering development! We aim to eliminate the pain of manually writing LaTeX/TikZ code, letting you design, customize, and export high-quality LaTeX circuit diagrams in the most intuitive way possible! 🎨
 
 ### ✨ Key Features
 
-- **🔌 Visio-like Intuitive Controls**: The interface and operations are designed to be as close as possible to **Microsoft Visio**. With smooth drag-and-drop, alignment, scaling, rotation, and grid snapping, it is extremely easy to get started!
-- **🤖 Smooth AI Agent Collaboration**: You can seamlessly pair this app with **schematic-to-TikZ AI skills / agents**. Just let the AI agent convert your hand-drawn circuit sketch or image into TikZ code first, then copy the code directly into this app to visually refine and customize it!
 - **🔄 Two-Way Sync (TikZ Editor & GUI)**: Real-time synchronization! Modifying the code instantly updates the visual canvas, and manipulating components on the GUI updates the TikZ code simultaneously.
-- **🛠️ Visio-Style Custom Symbol Editor**: Inspect and dynamically modify sub-path attributes (like thickness, coordinates, etc.) of custom components.
+- **🛠️ Custom Symbol Editor**: Inspect and dynamically modify sub-path attributes (like thickness, coordinates, etc.) of custom components.
 - **🌟 Rich Enhancements**:
     1. **Custom Categories & Subcircuits**: Organize your design workspace with custom component categories and custom subcircuits.
     2. **Visual Subcircuit Previews**: The symbols panel displays actual, accurate graphical previews of your subcircuits instead of generic boxes!
@@ -28,7 +18,65 @@
     4. **Premium Academic Theme**: Redesigned UI styling with a tailored dark mode palette and smooth gradients to reduce eye strain during long hours of research.
 - **👁️ Live LaTeX Rendering**:
     - **Primary Renderer**: Powered by the **QuickLaTeX API** for high-quality cloud LaTeX compilation, supporting all complex CircuiTikZ syntax and fonts!
-    - **Fallback Renderer**: Automatically falls back to the local **TikZJax (WebAssembly)** engine for offline rendering when network connection is down or QuickLaTeX is unavailable.
+
+---
+
+## 🖼️ Feature & Conversion Demos
+
+Below are the main interface features of **VisioCirkit** and side-by-side comparison showcases demonstrating the results of the AI Agent's **Schematic-to-TikZ** conversion.
+
+### 🎨 Visio-Style GUI & AI Integration
+
+The following shows the GUI features and integration with the AI Agent:
+
+| Feature Description                                                                                                                                          | Interface Showcase                                                        |
+| :----------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------ |
+| **Sallen-Key Filter GUI Editing**<br>Demonstrates the drag-and-drop interface and TikZ editor with two-way editing.                                          | ![Sallen-Key Filter GUI](./examples/2026-sallen-key.png)                  |
+| **Online Latex Rendering for Verification** <br>Demonstrates the code generated through the Visual Editor and verified by the online HolaTeX cloud renderer. | ![HolaTeX Rendered](./examples/2026-tikz-rendered-holatex.png)            |
+| **In-IDE AI Agent Prompting**<br>Demonstrates the dialog process with the AI Agent in the Antigravity IDE to convert schematics in papers.                   | ![TikZ Prompt in IDE](./examples/2026-tikz-prompt-in-antigravity-ide.png) |
+| **TikZ Editor Two-Way Sync**<br>Directly invoke the TikZ editor in the IDE to quickly edit code and preview in real-time.                                    | ![TikZ Editor](./examples/2026-tikz-editor-from-antigravity.png)          |
+
+---
+
+### 🛠️ Custom Symbol Editor
+
+The Custom Symbol Editor allows users to dynamically modify sub-path attributes, pin definitions, and view SVG previews in a Visio-style interface:
+
+|                          Attribute & Preview                          |                          Pins & Anchors                          |
+| :-------------------------------------------------------------------: | :--------------------------------------------------------------: |
+|     ![Symbol Editor Overview](./examples/2026-symbol-editor.png)      |   ![Symbol Editor Pins](./examples/2026-symbol-editor-03.png)    |
+|                   **Symbol Editor Main Interface**                    |    **Define component connection pins and anchor positions**     |
+| ![Symbol Editor Detailed Lines](./examples/2026-symbol-editor-02.png) | ![Symbol Editor Sub-path](./examples/2026-symbol-editor-03a.png) |
+|       **Adjust coordinates and thickness of sub-path segments**       |           **Preview SVG vector paths and appearance**            |
+
+---
+
+### 🤖 Schematic to TikZ Conversion Showcase
+
+Use the AI Agent skill `/sch2tikz` to convert schematic to tikz code which are rendered in svg. A good start to visually edit the schematic instead of starting from scratch. Below are side-by-side comparisons of the original schematic inputs and their converted vector outputs.
+
+> [!TIP]
+> While the TikZ code converted directly via the `/sch2tikz` skill might not be flawless initially, combining it with VisioCirkit's real-time two-way sync editing should still save users a significant amount of design time.
+
+#### 1. DCDC Buck Converter
+
+|                    Original Schematic                    |                  Converted & Rendered CircuiTikZ                  |
+| :------------------------------------------------------: | :---------------------------------------------------------------: |
+| ![DCDC Buck Original](./sch2tikz-out/2026-0625-0628.png) | ![DCDC Buck Rendered](./sch2tikz-out/2026-0625-0628_rendered.svg) |
+
+#### 2. Fully Differential Two-Stage Integrator
+
+|                        Original Schematic                        |              Converted & Rendered CircuiTikZ              |
+| :--------------------------------------------------------------: | :-------------------------------------------------------: |
+| ![Integrator Original](./sch2tikz-out/2026-0626-2222-upload.png) | ![Integrator Rendered](./sch2tikz-out/2026-0626-2222.svg) |
+
+---
+
+> [!WARNING]
+>
+> - **Always Backup Your TikZ Code!** 💾 VisioCircuit uses the TikZ code in the editor as the **single source of truth** for your design. To prevent any data loss, please copy and backup your `.tikz` code frequently.
+> - **TikZ Code Alteration & Comments Loss**: Pressing **Apply** in the TikZ editor synchronizes the code to the visual canvas. This process will restructure your TikZ code and completely discard all LaTeX comments (`% ...`). Please keep an external backup of your code if you want to preserve formatting or comments.
+> - **Alternative Preview Option**: As the app is still under active development, rendering bugs may occasionally occur. If you suspect an incorrect render, you can verify your TikZ code in an alternative online previewer such as the [HolaTeX Playground](https://holatex.app/playground.html).
 
 ---
 
@@ -61,15 +109,12 @@
 
 1. Switch to the `demo/b-local-storage-vercel` branch.
 2. Run `npm install`.
-3. Verify the environment by running tests:
+3. Build, test, and automatically verify the static build preset:
     ```bash
-    npm run test -- tests/runtimeBootstrap.test.ts tests/apiServices.test.ts
+    npm run deploy:demo
     ```
-4. Build the demo version:
-    ```bash
-    npm run build:demo
-    ```
-5. Deploy the generated `dist/` directory to your static host, and ensure the serverless backend proxy `api/latex.js` is available.
+    _(This command automatically runs vitest unit tests, builds the demo version, and runs the verifier script to ensure the static index.html is correctly pinned to the demo runtime mode.)_
+4. Deploy the generated `dist/` directory to your static host, and ensure the serverless backend proxy `api/latex.js` is available.
 
 ---
 
