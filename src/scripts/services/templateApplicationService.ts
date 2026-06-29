@@ -7,8 +7,8 @@ import {
 	TemplateSessionState,
 } from "./templateTypes"
 
-const DEFAULT_TEMPLATE_DIR: TemplateDirectory = "template"
-const DEFAULT_TEMPLATE_NAME = "rc-lowpass.tex"
+const DEFAULT_TEMPLATE_DIR: TemplateDirectory = "work"
+const DEFAULT_TEMPLATE_NAME = "blank.tex"
 
 export class TemplateApplicationService {
 	private state: TemplateSessionState = {
@@ -35,17 +35,34 @@ export class TemplateApplicationService {
 
 	public async listEntries(): Promise<TemplateListViewModel> {
 		const files = await this.dataSource.listFiles()
+		let works = files.works ?? []
+		if (!works.includes("blank.tex")) {
+			works = ["blank.tex", ...works]
+			const blankContent = `\\begin{circuitikz}[american]\n\\end{circuitikz}`
+			this.dataSource.saveWork("blank.tex", blankContent).catch(() => {})
+		}
 		this.state = {
 			...this.state,
 			templates: files.templates ?? [],
-			works: files.works ?? [],
+			works: works,
 		}
 		return this.buildListViewModel()
 	}
 
 	public async openFile(dir: TemplateDirectory, name: string): Promise<TemplateListViewModel> {
 		try {
-			const code = await this.dataSource.readFile(dir, name)
+			let code: string
+			try {
+				code = await this.dataSource.readFile(dir, name)
+			} catch (err: any) {
+				if (dir === "work" && name === "blank.tex") {
+					const blankContent = `\\begin{circuitikz}[american]\n\\end{circuitikz}`
+					this.dataSource.saveWork("blank.tex", blankContent).catch(() => {})
+					code = blankContent
+				} else {
+					throw err
+				}
+			}
 			this.editor.setCode(code)
 			this.editor.applyEditorText()
 			this.state = {
@@ -91,6 +108,10 @@ export class TemplateApplicationService {
 	}
 
 	public async deleteWork(name: string): Promise<TemplateListViewModel> {
+		if (name === "blank.tex") {
+			await this.notifier.alert("Delete Work", "The default blank work cannot be deleted.")
+			return this.buildListViewModel()
+		}
 		const baseName = name.replace(/\.tex$/, "")
 		const confirmDelete = await this.notifier.confirm("Delete Work", `Are you sure you want to delete "${baseName}"?`)
 		if (!confirmDelete) {

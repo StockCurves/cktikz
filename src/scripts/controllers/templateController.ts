@@ -62,7 +62,8 @@ export class TemplateController {
 
 	public openSaveModal() {
 		const baseName = this.runtime.applicationService.getState().currentName.replace(/\.tex$/, "")
-		this.saveServerFilenameInput.value = baseName === "rc-lowpass" ? "my-circuit" : baseName
+		this.saveServerFilenameInput.value =
+			baseName === "rc-lowpass" || baseName === "blank" ? "my-circuit" : baseName
 		this.saveServerModal?.show()
 	}
 

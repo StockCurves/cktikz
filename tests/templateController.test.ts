@@ -88,25 +88,25 @@ describe("TemplateController", () => {
 
 		serviceMocks.bootstrapDefaultFile.mockResolvedValue({
 			templates: ["rc-lowpass.tex"],
-			works: [],
-			selectedDisplayName: "rc-lowpass",
-			hasWorks: false,
+			works: ["blank.tex"],
+			selectedDisplayName: "blank",
+			hasWorks: true,
 		})
 		serviceMocks.openFile.mockResolvedValue({
 			templates: ["rc-lowpass.tex"],
-			works: ["draft.tex"],
+			works: ["blank.tex", "draft.tex"],
 			selectedDisplayName: "draft",
 			hasWorks: true,
 		})
 		serviceMocks.getState.mockReturnValue({
-			currentDir: "template",
-			currentName: "rc-lowpass.tex",
+			currentDir: "work",
+			currentName: "blank.tex",
 			templates: ["rc-lowpass.tex"],
-			works: [],
+			works: ["blank.tex"],
 		})
 	})
 
-	it("renders template and work groups with empty-state messaging", async () => {
+	it("renders template and work groups with blank work", async () => {
 		const { TemplateController } = await import("../src/scripts/controllers/templateController")
 
 		await TemplateController.instance.initialize()
@@ -114,8 +114,8 @@ describe("TemplateController", () => {
 		const menu = document.getElementById("template-dropdown-menu")!
 		expect(menu.textContent).toContain("Templates (Read-Only)")
 		expect(menu.textContent).toContain("Work (Editable)")
-		expect(menu.textContent).toContain("No saved works")
-		expect(document.getElementById("template-dropdown-btn")!.textContent).toContain("rc-lowpass")
+		expect(menu.textContent).toContain("blank")
+		expect(document.getElementById("template-dropdown-btn")!.textContent).toContain("blank")
 	})
 
 	it("opens a work file when a dropdown item is clicked", async () => {

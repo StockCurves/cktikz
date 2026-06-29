@@ -31,10 +31,10 @@ describe("TemplateApplicationService", () => {
 		const viewModel = await service.bootstrapDefaultFile(true)
 
 		expect(dataSource.listFiles).toHaveBeenCalledTimes(1)
-		expect(dataSource.readFile).toHaveBeenCalledWith("template", "rc-lowpass.tex")
+		expect(dataSource.readFile).toHaveBeenCalledWith("work", "blank.tex")
 		expect(editor.setCode).toHaveBeenCalledWith("\\draw (0,0) -- (1,0);")
 		expect(editor.applyEditorText).toHaveBeenCalledTimes(1)
-		expect(viewModel.selectedDisplayName).toBe("rc-lowpass")
+		expect(viewModel.selectedDisplayName).toBe("blank")
 	})
 
 	it("openFile updates editor content and session state", async () => {
@@ -69,8 +69,8 @@ describe("TemplateApplicationService", () => {
 
 		expect(notifier.confirm).toHaveBeenCalledWith("Delete Work", 'Are you sure you want to delete "draft"?')
 		expect(dataSource.deleteWork).toHaveBeenCalledWith("draft.tex")
-		expect(dataSource.readFile).toHaveBeenLastCalledWith("template", "rc-lowpass.tex")
-		expect(viewModel.selectedDisplayName).toBe("rc-lowpass")
+		expect(dataSource.readFile).toHaveBeenLastCalledWith("work", "blank.tex")
+		expect(viewModel.selectedDisplayName).toBe("blank")
 	})
 
 	it("invalid save input is reported through the notifier", async () => {
@@ -80,5 +80,15 @@ describe("TemplateApplicationService", () => {
 
 		expect(notifier.alert).toHaveBeenCalledWith("Save File", "Invalid filename characters.")
 		expect(dataSource.saveWork).not.toHaveBeenCalled()
+	})
+
+	it("deleteWork blocks deletion of blank.tex", async () => {
+		const service = new TemplateApplicationService(dataSource, editor, notifier)
+		await service.listEntries()
+
+		const viewModel = await service.deleteWork("blank.tex")
+
+		expect(notifier.alert).toHaveBeenCalledWith("Delete Work", "The default blank work cannot be deleted.")
+		expect(dataSource.deleteWork).not.toHaveBeenCalled()
 	})
 })
