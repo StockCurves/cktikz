@@ -62,6 +62,17 @@
 
 % --- Lower Section: Comparators and Control Logic ---
 
+% Comparators CMPT and CMPB (CMPB is y-scaled by -1)
+\node[op amp] (CMPT) at (3.0, 2.1) {};
+\node[op amp, yscale=-1] (CMPB) at (3.0, 0.45) {};
+
+% Hysteresis loops inside comparators
+\draw (2.85, 2.02) -- (2.98, 2.02) -- (2.98, 2.18) -- (3.15, 2.18);
+\draw (3.15, 2.18) -- (3.02, 2.18) -- (3.02, 2.02) -- (2.85, 2.02);
+
+\draw (2.85, 0.37) -- (2.98, 0.37) -- (2.98, 0.53) -- (3.15, 0.53);
+\draw (3.15, 0.53) -- (3.02, 0.53) -- (3.02, 0.37) -- (2.85, 0.37);
+
 % Feedback junction point on V_SAW rail and path down to comparators
 \node[circ] at (9.5, 6.15) {};
 \draw (9.5, 6.15) -- (9.5, 1.275) -- (1.5, 1.275);
@@ -79,17 +90,6 @@
 \node[osquarepole] at (1.2, -0.04) {};
 \node[anchor=east] at (1.0, -0.04) {\small $V_{\mathrm{BOT}}$};
 \draw (1.2, -0.04) -- (CMPB.-);
-
-% Comparators CMPT and CMPB (CMPB is y-scaled by -1)
-\node[op amp] (CMPT) at (3.0, 2.1) {};
-\node[op amp, yscale=-1] (CMPB) at (3.0, 0.45) {};
-
-% Hysteresis loops inside comparators
-\draw (2.85, 2.02) -- (2.98, 2.02) -- (2.98, 2.18) -- (3.15, 2.18);
-\draw (3.15, 2.18) -- (3.02, 2.18) -- (3.02, 2.02) -- (2.85, 2.02);
-
-\draw (2.85, 0.37) -- (2.98, 0.37) -- (2.98, 0.53) -- (3.15, 0.53);
-\draw (3.15, 0.53) -- (3.02, 0.53) -- (3.02, 0.37) -- (2.85, 0.37);
 
 % Inverters INVT and INVB
 \node[american not port] (INVT) at (5.0, 2.1) {};

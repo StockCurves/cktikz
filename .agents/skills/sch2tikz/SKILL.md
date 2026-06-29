@@ -138,3 +138,26 @@ This keeps `Apply` round-trips stable and avoids the parser converting dots into
 | `pmos` | `G` | -0.98 | 0 |
 | `pmos` | `D` | 0 | -0.77 |
 | `pmos` | `S` | 0 | +0.77 |
+
+---
+
+## Local LaTeX Rendering Setup
+
+To achieve extremely fast rendering verification (under 1 second compared to 8+ seconds via the remote QuickLaTeX API), it is highly recommended to configure a local LaTeX compilation environment.
+
+### 1. Install local TeX Distribution
+- **Windows**: Install [MiKTeX](https://miktex.org/download) or TeX Live. Ensure the bin directory containing `pdflatex.exe` is added to your Windows user or system PATH environment variable.
+- **macOS / Linux**: Install MacTeX or TeX Live via your package manager.
+
+### 2. Install SVG Conversion Tools
+- `dvisvgm` is required to convert Compiled PDF outputs into vector SVG format. It is bundled by default in most MiKTeX and TeX Live installations.
+- Ensure `pdflatex` and `dvisvgm` are discoverable by running `pdflatex --version` and `dvisvgm --version` in your terminal.
+
+### 3. Recommended Packages
+Ensure the following LaTeX packages are installed in your TeX manager:
+- `standalone`
+- `circuitikz` (v1.8.0+)
+- `amsmath`, `amsfonts`, `amssymb`
+- `siunitx`
+
+If package auto-installation is not globally enabled, install them manually using the MiKTeX Console or running `mpm --install=<package_name>`. The verification script automatically runs `pdflatex` with `-disable-installer` to avoid background execution hangs, falling back cleanly to the remote QuickLaTeX API if packages are missing.
