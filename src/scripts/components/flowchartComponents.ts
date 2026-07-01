@@ -1,13 +1,10 @@
 import * as SVG from "@svgdotjs/svg.js"
-import {
-	CanvasController,
-	CircuitComponent,
-	EllipseComponent,
-	RectangleComponent,
-	type EllipseSaveObject,
-	type RectangleSaveObject,
-	type TikzNodeCommand,
-} from "../internal"
+import { closestBasicDirection } from "../utils/utils"
+import { CanvasController } from "../controllers/canvasController"
+import { CircuitComponent } from "./circuitComponent"
+import { EllipseComponent, type EllipseSaveObject } from "./ellipseComponent"
+import { RectangleComponent, type RectangleSaveObject } from "./rectangleComponent"
+import { type TikzNodeCommand } from "../utils/tikzBuilder"
 
 export type FlowchartComponentKind =
 	| "terminator"
@@ -58,6 +55,38 @@ function applyPathGeometry(component: RectangleComponent, builder: (width: numbe
 
 	target.plot(pathData)
 	target.transform((component as any).getTransformMatrix())
+}
+
+function updateCustomRectangleShape(component: RectangleComponent, geometry: () => void) {
+	const internal = component as any
+	const transformMatrix = internal.getTransformMatrix()
+	const halfSize = internal.size.div(2)
+
+	internal.dragElement.size(internal.size.x, internal.size.y)
+	internal.dragElement.transform(transformMatrix)
+
+	internal.defaultTextPosition = halfSize
+	internal._bbox = internal.dragElement.bbox().transform(transformMatrix)
+
+	if (internal.isResizing) {
+		for (const [direction, viz] of internal.resizeVisualizations.entries()) {
+			const directionTransformed = direction.direction.transform(
+				new SVG.Matrix({
+					rotate: -internal.rotationDeg,
+					scaleX: internal.scaleState.x,
+					scaleY: internal.scaleState.y,
+				})
+			)
+			viz.node.style.cursor = closestBasicDirection(directionTransformed).pointer
+		}
+	}
+
+	geometry()
+	internal.recalculateSelectionVisuals()
+	internal.recalculateSnappingPoints()
+	internal.recalculateResizePoints()
+	internal.updatePositionedLabel()
+	internal.updateText()
 }
 
 export class FlowchartTerminatorComponent extends RectangleComponent {
@@ -132,13 +161,14 @@ export class FlowchartDecisionComponent extends RectangleComponent {
 	}
 
 	public override update(): void {
-		super.update()
-		applyNormalizedPolygonGeometry(this, [
-			[0.5, 0],
-			[1, 0.5],
-			[0.5, 1],
-			[0, 0.5],
-		])
+		updateCustomRectangleShape(this, () =>
+			applyNormalizedPolygonGeometry(this, [
+				[0.5, 0],
+				[1, 0.5],
+				[0.5, 1],
+				[0, 0.5],
+			])
+		)
 	}
 
 	protected override buildTikzCommand(command: TikzNodeCommand): void {
@@ -190,13 +220,14 @@ export class FlowchartInputOutputComponent extends RectangleComponent {
 	}
 
 	public override update(): void {
-		super.update()
-		applyNormalizedPolygonGeometry(this, [
-			[0.18, 0],
-			[1, 0],
-			[0.82, 1],
-			[0, 1],
-		])
+		updateCustomRectangleShape(this, () =>
+			applyNormalizedPolygonGeometry(this, [
+				[0.18, 0],
+				[1, 0],
+				[0.82, 1],
+				[0, 1],
+			])
+		)
 	}
 
 	protected override buildTikzCommand(command: TikzNodeCommand): void {
@@ -246,13 +277,14 @@ export class FlowchartDocumentComponent extends RectangleComponent {
 	}
 
 	public override update(): void {
-		super.update()
-		applyPathGeometry(
-			this,
-			(width, height, offset) =>
-				`M ${offset} ${offset} L ${offset + width} ${offset} L ${offset + width} ${offset + height * 0.82} ` +
-				`C ${offset + width * 0.88} ${offset + height * 0.94}, ${offset + width * 0.72} ${offset + height}, ${offset + width * 0.5} ${offset + height * 0.92} ` +
-				`C ${offset + width * 0.3} ${offset + height * 0.84}, ${offset + width * 0.14} ${offset + height * 0.9}, ${offset} ${offset + height} Z`
+		updateCustomRectangleShape(this, () =>
+			applyPathGeometry(
+				this,
+				(width, height, offset) =>
+					`M ${offset} ${offset} L ${offset + width} ${offset} L ${offset + width} ${offset + height * 0.82} ` +
+					`C ${offset + width * 0.88} ${offset + height * 0.94}, ${offset + width * 0.72} ${offset + height}, ${offset + width * 0.5} ${offset + height * 0.92} ` +
+					`C ${offset + width * 0.3} ${offset + height * 0.84}, ${offset + width * 0.14} ${offset + height * 0.9}, ${offset} ${offset + height} Z`
+			)
 		)
 	}
 
@@ -299,29 +331,30 @@ export class FlowchartDatabaseComponent extends RectangleComponent {
 	}
 
 	public override update(): void {
-		super.update()
-		applyPathGeometry(
-			this,
-			(width, height, offset) => {
-				const left = offset
-				const top = offset
-				const right = offset + width
-				const bottom = offset + height
-				const ellipseHeight = Math.min(height * 0.28, height / 2)
-				const midTop = top + ellipseHeight / 2
-				const midBottom = bottom - ellipseHeight / 2
-				return [
-					`M ${left} ${midTop}`,
-					`C ${left} ${top}, ${right} ${top}, ${right} ${midTop}`,
-					`L ${right} ${midBottom}`,
-					`C ${right} ${bottom}, ${left} ${bottom}, ${left} ${midBottom}`,
-					"Z",
-					`M ${left} ${midTop}`,
-					`C ${left} ${top + ellipseHeight}, ${right} ${top + ellipseHeight}, ${right} ${midTop}`,
-					`M ${left} ${midBottom}`,
-					`C ${left} ${bottom - ellipseHeight}, ${right} ${bottom - ellipseHeight}, ${right} ${midBottom}`,
-				].join(" ")
-			}
+		updateCustomRectangleShape(this, () =>
+			applyPathGeometry(
+				this,
+				(width, height, offset) => {
+					const left = offset
+					const top = offset
+					const right = offset + width
+					const bottom = offset + height
+					const ellipseHeight = Math.min(height * 0.28, height / 2)
+					const midTop = top + ellipseHeight / 2
+					const midBottom = bottom - ellipseHeight / 2
+					return [
+						`M ${left} ${midTop}`,
+						`C ${left} ${top}, ${right} ${top}, ${right} ${midTop}`,
+						`L ${right} ${midBottom}`,
+						`C ${right} ${bottom}, ${left} ${bottom}, ${left} ${midBottom}`,
+						"Z",
+						`M ${left} ${midTop}`,
+						`C ${left} ${top + ellipseHeight}, ${right} ${top + ellipseHeight}, ${right} ${midTop}`,
+						`M ${left} ${midBottom}`,
+						`C ${left} ${bottom - ellipseHeight}, ${right} ${bottom - ellipseHeight}, ${right} ${midBottom}`,
+					].join(" ")
+				}
+			)
 		)
 	}
 
@@ -366,22 +399,23 @@ export class FlowchartSubprocessComponent extends RectangleComponent {
 	}
 
 	public override update(): void {
-		super.update()
-		applyPathGeometry(
-			this,
-			(width, height, offset) => {
-				const inset = Math.min(width * 0.12, 18)
-				return [
-					`M ${offset} ${offset}`,
-					`L ${offset + width} ${offset}`,
-					`L ${offset + width} ${offset + height}`,
-					`L ${offset} ${offset + height} Z`,
-					`M ${offset + inset} ${offset + Math.min(8, height * 0.08)}`,
-					`L ${offset + inset} ${offset + height - Math.min(8, height * 0.08)}`,
-					`M ${offset + width - inset} ${offset + Math.min(8, height * 0.08)}`,
-					`L ${offset + width - inset} ${offset + height - Math.min(8, height * 0.08)}`,
-				].join(" ")
-			}
+		updateCustomRectangleShape(this, () =>
+			applyPathGeometry(
+				this,
+				(width, height, offset) => {
+					const inset = Math.min(width * 0.12, 18)
+					return [
+						`M ${offset} ${offset}`,
+						`L ${offset + width} ${offset}`,
+						`L ${offset + width} ${offset + height}`,
+						`L ${offset} ${offset + height} Z`,
+						`M ${offset + inset} ${offset + Math.min(8, height * 0.08)}`,
+						`L ${offset + inset} ${offset + height - Math.min(8, height * 0.08)}`,
+						`M ${offset + width - inset} ${offset + Math.min(8, height * 0.08)}`,
+						`L ${offset + width - inset} ${offset + height - Math.min(8, height * 0.08)}`,
+					].join(" ")
+				}
+			)
 		)
 	}
 
@@ -464,14 +498,15 @@ export class FlowchartOffPageConnectorComponent extends RectangleComponent {
 	}
 
 	public override update(): void {
-		super.update()
-		applyNormalizedPolygonGeometry(this, [
-			[0.12, 0],
-			[0.88, 0],
-			[1, 0.58],
-			[0.5, 1],
-			[0, 0.58],
-		])
+		updateCustomRectangleShape(this, () =>
+			applyNormalizedPolygonGeometry(this, [
+				[0.12, 0],
+				[0.88, 0],
+				[1, 0.58],
+				[0.5, 1],
+				[0, 0.58],
+			])
+		)
 	}
 
 	protected override buildTikzCommand(command: TikzNodeCommand): void {

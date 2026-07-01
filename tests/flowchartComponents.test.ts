@@ -33,6 +33,8 @@ describe("flowchart component visual geometry", () => {
 		expect((decision.componentVisualization as any).plot).toHaveBeenCalled()
 		expect((inputOutput.componentVisualization as any).plot).toHaveBeenCalled()
 		expect((offPage.componentVisualization as any).plot).toHaveBeenCalled()
+		expect((decision.componentVisualization as any).size).not.toHaveBeenCalled()
+		expect((decision.componentVisualization as any).center).not.toHaveBeenCalled()
 	})
 
 	it("plots path-based flowchart shapes during update", () => {
@@ -56,5 +58,7 @@ describe("flowchart component visual geometry", () => {
 		expect((document.componentVisualization as any).plot).toHaveBeenCalled()
 		expect((database.componentVisualization as any).plot).toHaveBeenCalled()
 		expect((subprocess.componentVisualization as any).plot).toHaveBeenCalled()
+		expect((document.componentVisualization as any).size).not.toHaveBeenCalled()
+		expect((document.componentVisualization as any).center).not.toHaveBeenCalled()
 	})
 })

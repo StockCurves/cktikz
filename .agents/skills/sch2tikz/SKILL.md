@@ -127,6 +127,9 @@ To prevent overlaps, text truncation, and crowded components, you MUST calculate
 - Text Label: Width 1.5cm, Height 0.5cm (with explicit anchors e.g., [anchor=east])
 - Timing Waveform Sketch: Width 4.5cm, Height 2.5cm
 
+**Label-to-Body Clearance Rule**:
+When components are placed in parallel, a component's label (offset by $\approx 0.3$cm to $0.4$cm from the wire) must not overlap with the physical body or wire of neighboring components. To guarantee this, the minimum center-to-center vertical/horizontal spacing between any parallel components must be at least **1.0cm** (derived as: Component A label top limit $y_A + 0.55$cm vs. Component B body bottom limit $y_B - 0.3$cm + safety margin of $0.15$cm $\implies y_B - y_A \ge 1.0$cm).
+
 ### 9. Clearance and Routing Rules
 1. **Orthogonal Routing**: Unless the source schematic explicitly contains diagonal connections (e.g. cross-coupled latch feedback paths, bridge rectifiers, wheatstone bridges), all wiring MUST be strictly orthogonal (horizontal or vertical only) and aligned precisely with component pins.
 2. **Intentional Diagonals**: If the source diagram intentionally uses diagonal paths, render them faithfully as diagonal lines using absolute coordinates. Do not attempt to force them into straight orthogonal lines.
@@ -145,7 +148,27 @@ Emit PMOS nodes with the CircuiTikZ `emptycircle` option by default:
 \node[pmos, emptycircle] (M1) at (3, 5.5) {};
 \node[pmos, emptycircle, xscale=-1] (M2) at (3, 4.0) {};
 ```
-Use `nocircle` only when the source schematic explicitly shows a PMOS without the gate bubble.
+### 12. Netlist Connectivity Self-Check
+To systematically avoid and correct wire routing errors, you MUST perform a virtual Netlist Connectivity Self-Check before delivering final TikZ code:
+1. **Trace Inputs to Outputs**: For every node/junction, list which components and pins are electrically connected.
+2. **Verify Loop Polarity**: For every feedback loop (direct or cross-coupled), verify the sign (positive vs. negative). Specifically, check whether a feedback wire connects to the inverting input (`-`) or non-inverting input (`+`), and matching it against the schematic output polarity.
+3. **Check Crossings**: Verify that intersecting lines that are NOT electrically connected do not have `circ` node connection dots, and that they cross cleanly using orthogonal layout offsets.
+
+---
+
+## Computer Vision Assisted Visual Mapping (A1 Workflow)
+
+When converting schematics with complex routing or symmetrical structures (such as fully differential filters), you can use the computer vision pipeline to extract precise layout coordinates:
+
+1. **Component Bounding Box Detection**: Run the CV detection script to find coordinates of components:
+   ```bash
+   python .agents/skills/sch2tikz/scripts/detect_components.py sch2tikz-out/YYYY-MMDD-HHMM-upload.png
+   ```
+2. **Grid Alignment and Clustering**: Cluster coordinates on X and Y axes to find the grid lines, and map them to standard absolute TikZ coordinates:
+   ```bash
+   python .agents/skills/sch2tikz/scripts/grid_mapping_new.py sch2tikz-out/YYYY-MMDD-HHMM-upload.png
+   ```
+3. **Manual Override for Symmetry**: When the CV mapping outputs slightly asymmetric coordinates for symmetric components (e.g., $y = 0.52$ and $y = -0.48$), round them to symmetric integers or fractions (e.g., $y = \pm0.5$) to ensure a balanced drawing.
 
 ---
 
